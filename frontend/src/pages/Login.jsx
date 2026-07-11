@@ -1,20 +1,49 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Route as RouteIcon, Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Route as RouteIcon, Eye, EyeOff } from 'lucide-react';
+import { authService } from '../services/api.js';
 
 export default function Login() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [form, setForm] = useState({ email: '', password: '' })
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // TODO: wire up to the Express/MongoDB auth endpoint
-    console.log('Login submitted:', form)
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const userData = await authService.login(form.email, form.password);
+      
+      // If the user is an instructor in pending state, prevent direct access
+      if (userData.role === 'instructor' && userData.status === 'pending') {
+        setError('Your instructor profile is pending administrator approval. Please check back later.');
+        authService.logout(); // Clear token and local user data
+        setLoading(false);
+        return;
+      }
+
+      // Redirect depending on user role
+      if (userData.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (userData.role === 'instructor') {
+        navigate('/instructor/dashboard');
+      } else {
+        navigate('/student/dashboard');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid email or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-paper">
@@ -35,6 +64,13 @@ export default function Login() {
           Log in to pick up your learning path where you left off.
         </p>
 
+        {/* Display Alert Messages */}
+        {error && (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
           <div>
             <label htmlFor="email" className="text-sm font-medium text-ink">
@@ -49,6 +85,7 @@ export default function Login() {
               onChange={handleChange}
               placeholder="you@example.com"
               className="mt-1.5 w-full rounded-xl border border-line bg-paper-alt px-4 py-3 text-sm text-ink placeholder:text-slate focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              disabled={loading}
             />
           </div>
 
@@ -71,12 +108,14 @@ export default function Login() {
                 onChange={handleChange}
                 placeholder="••••••••"
                 className="w-full rounded-xl border border-line bg-paper-alt px-4 py-3 pr-11 text-sm text-ink placeholder:text-slate focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate hover:text-ink"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={loading}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -85,9 +124,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="mt-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+            disabled={loading}
+            className="mt-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-75 disabled:cursor-not-allowed"
           >
-            Log in
+            {loading ? 'Logging in...' : 'Log in'}
           </button>
         </form>
 
@@ -103,7 +143,7 @@ export default function Login() {
         <AuthSidePanel />
       </div>
     </div>
-  )
+  );
 }
 
 function AuthSidePanel() {
@@ -120,5 +160,5 @@ function AuthSidePanel() {
         for you on your dashboard.
       </p>
     </div>
-  )
+  );
 }
