@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { Menu, X, Route as RouteIcon } from 'lucide-react'
 
 const links = [
-  { label: 'Explore courses', href: '#courses' },
+  { label: 'Explore courses', href: '/courses' },
   { label: 'Learning paths', href: '#how-it-works' },
   { label: 'For instructors', href: '#features' },
   { label: 'Reviews', href: '#testimonials' },
 ]
+
+const isInternalLink = (href) => href.startsWith('/')
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
@@ -25,15 +27,25 @@ export default function Navbar() {
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          {links.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm font-medium text-ink-soft transition-colors hover:text-primary"
-            >
-              {link.label}
-            </a>
-          ))}
+          {links.map((link) =>
+            isInternalLink(link.href) ? (
+              <Link
+                key={link.label}
+                to={link.href}
+                className="text-sm font-medium text-ink-soft transition-colors hover:text-primary"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-sm font-medium text-ink-soft transition-colors hover:text-primary"
+              >
+                {link.label}
+              </a>
+            )
+          )}
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
@@ -64,16 +76,27 @@ export default function Navbar() {
       {open && (
         <div className="border-t border-line bg-paper-alt px-6 pb-6 md:hidden">
           <div className="flex flex-col gap-4 pt-4">
-            {links.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className="text-sm font-medium text-ink-soft"
-              >
-                {link.label}
-              </a>
-            ))}
+            {links.map((link) =>
+              isInternalLink(link.href) ? (
+                <Link
+                  key={link.label}
+                  to={link.href}
+                  onClick={() => setOpen(false)}
+                  className="text-sm font-medium text-ink-soft"
+                >
+                  {link.label}
+                </Link>
+              ) : (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="text-sm font-medium text-ink-soft"
+                >
+                  {link.label}
+                </a>
+              )
+            )}
             <div className="mt-2 flex flex-col gap-3">
               <Link
                 to="/login"

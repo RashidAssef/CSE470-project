@@ -5,6 +5,8 @@ import Signup from './pages/Signup.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import StudentDashboard from './pages/StudentDashboard.jsx';
 import InstructorDashboard from './pages/InstructorDashboard.jsx';
+import BrowseCourses from './pages/BrowseCourses.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
@@ -14,6 +16,10 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+
+      {/* Course Enrollment Routes (public browsing; enroll action requires student login) */}
+      <Route path="/courses" element={<BrowseCourses />} />
+      <Route path="/courses/:id" element={<CourseDetail />} />
 
       {/* Protected Admin Routes */}
       <Route
