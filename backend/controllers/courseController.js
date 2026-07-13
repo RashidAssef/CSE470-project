@@ -23,6 +23,7 @@ export const getAllCourse =  async(req , res , next) => {
 
 export const insertCourse = async(req,res)=> {
     try {
+        const instructorId = req.user._id;
         const category = await Category.findById(req.body.category);
 
         if (!category) {
@@ -88,17 +89,26 @@ export const deleteCourse = async(req,res)=> {
 
 
 export const updateCourse = async (req, res) => {
-    try {
-        const course = await Course.findOne({
-            _id: req.params.id,
-            instructor: req.user._id
-        });
+    
+    try{
+        const course = await Course.findById(req.params.id);
 
-        if (!course) {
+        if(!course){
+
             return res.status(404).json({
-                status: "fail",
-                message: "Course not found or you are not authorized."
+                status:"fail",
+                message:"Course not found"
             });
+
+        }
+
+        if(course.instructor.toString() !== req.user._id.toString()){
+
+            return res.status(403).json({
+                status:"fail",
+                message:"You are not allowed to edit this course"
+            });
+
         }
 
         // Update fields only if they are provided

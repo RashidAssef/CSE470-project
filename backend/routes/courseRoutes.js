@@ -11,9 +11,10 @@ const router = express.Router();
 
 
 
-router.get('/',getAllCourse)
-router.route('/:id')
+router.route('/')
+    .get(getAllCourse)
     .post(protect, authorize('instructor'),insertCourse)
+router.route('/:id')
     .delete(protect, authorize('instructor'),deleteCourse)
     .put(protect,authorize('instructor'), updateCourse)
 

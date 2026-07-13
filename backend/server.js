@@ -24,7 +24,7 @@ app.use(express.json()); // Allow parsing of JSON bodies
 // API Route Mounts
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/course', courseRoutes);
+app.use('/api/courses', courseRoutes);
 
 // Basic Health Check Route
 app.get('/api/health', (req, res) => {
