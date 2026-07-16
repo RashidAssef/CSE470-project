@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Users, BookOpen } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
-import { courseService, adminService, authService } from '../services/api.js'
+import { courseService, adminService, authService, enrollmentService } from '../services/api.js'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -15,6 +15,7 @@ export default function BrowseCourses() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [categories, setCategories] = useState([])
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -27,6 +28,16 @@ export default function BrowseCourses() {
   useEffect(() => {
     // Categories rarely change, fetch once
     adminService.getCategories().then(setCategories).catch(() => {})
+
+    // Fetch enrolled course IDs if logged in as student
+    if (currentUser && currentUser.role === 'student') {
+      enrollmentService.getMyEnrollments()
+        .then((data) => {
+          const ids = data.map((e) => e.course?._id || e.course)
+          setEnrolledCourseIds(ids)
+        })
+        .catch(() => {})
+    }
   }, [])
 
   useEffect(() => {
@@ -142,9 +153,16 @@ export default function BrowseCourses() {
                   className="flex flex-col rounded-2xl border border-line bg-paper-alt p-6 text-left transition-shadow hover:shadow-lg hover:shadow-ink/5"
                 >
                   <div className="flex items-start justify-between">
-                    <span className="rounded-full bg-paper px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate">
-                      {course.category?.name || 'General'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-paper px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate">
+                        {course.category?.name || 'General'}
+                      </span>
+                      {enrolledCourseIds.includes(course._id) && (
+                        <span className="rounded-full bg-teal/10 px-2.5 py-1 font-mono text-[10px] font-bold text-teal uppercase tracking-wider border border-teal/10 animate-fade-in">
+                          Enrolled
+                        </span>
+                      )}
+                    </div>
                     <span className="rounded-full bg-primary-light px-2.5 py-1 font-mono text-[11px] text-primary-dark">
                       {levelLabels[course.level]}
                     </span>
@@ -153,11 +171,19 @@ export default function BrowseCourses() {
                   <h3 className="mt-4 font-display text-lg font-semibold leading-snug text-ink">
                     {course.title}
                   </h3>
-                  <p className="mt-1 text-sm text-slate">
-                    {course.instructor?.name || 'Pathway Instructor'}
-                  </p>
+                  
+                  {/* Co-instructors */}
+                  {course.coInstructors && course.coInstructors.length > 0 ? (
+                    <p className="mt-1 text-xs text-slate">
+                      {course.instructor?.name || 'Pathway Instructor'} (+ co-authors: {course.coInstructors.map(c => c.name).join(', ')})
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate">
+                      {course.instructor?.name || 'Pathway Instructor'}
+                    </p>
+                  )}
 
-                  <p className="mt-3 line-clamp-2 text-sm text-ink-soft">
+                  <p className="mt-3 line-clamp-2 text-sm text-ink-soft leading-relaxed flex-1">
                     {course.description}
                   </p>
 
@@ -168,12 +194,12 @@ export default function BrowseCourses() {
                     </span>
                   </div>
 
-                  <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
+                  <div className="mt-6 flex items-center justify-between border-t border-line pt-4 w-full">
                     <span className="font-display text-base font-semibold text-ink">
                       {course.price > 0 ? `৳${course.price}` : 'Free'}
                     </span>
                     <span className="text-sm font-semibold text-primary">
-                      View course →
+                      {enrolledCourseIds.includes(course._id) ? 'Resume course →' : 'View course →'}
                     </span>
                   </div>
                 </button>

@@ -248,6 +248,47 @@ export const courseService = {
     const res = await apiFetch(`/courses/${courseId}`);
     return res.data;
   },
+
+  /**
+   * Create a new course
+   * @param {Object} courseData
+   */
+  createCourse: async (courseData) => {
+    const res = await apiFetch('/courses', {
+      method: 'POST',
+      body: courseData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Get all courses created by the logged-in instructor
+   */
+  getInstructorCourses: async () => {
+    const res = await apiFetch('/courses/instructor/my');
+    return res.data;
+  },
+
+  /**
+   * Update a course's primary and co-instructors
+   * @param {string} courseId
+   * @param {Object} instructorsData - { instructor: string, coInstructors: string[] }
+   */
+  updateCourseInstructors: async (courseId, instructorsData) => {
+    const res = await apiFetch(`/courses/${courseId}/instructors`, {
+      method: 'PATCH',
+      body: instructorsData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Get all active/verified instructors
+   */
+  getActiveInstructors: async () => {
+    const res = await apiFetch('/courses/instructors/active');
+    return res.data;
+  },
 };
 
 // ==========================================
@@ -288,6 +329,26 @@ export const enrollmentService = {
    */
   unenroll: async (enrollmentId) => {
     return await apiFetch(`/enrollments/${enrollmentId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Get all students enrolled in a specific course
+   * @param {string} courseId
+   */
+  getCourseEnrollments: async (courseId) => {
+    const res = await apiFetch(`/enrollments/course/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Remove a student from a course (Admin force)
+   * @param {string} courseId
+   * @param {string} studentId
+   */
+  removeStudentFromCourse: async (courseId, studentId) => {
+    return await apiFetch(`/enrollments/course/${courseId}/student/${studentId}`, {
       method: 'DELETE',
     });
   },

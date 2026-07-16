@@ -171,3 +171,60 @@ export const unenrollFromCourse = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Get all students enrolled in a specific course
+ * @route   GET /api/enrollments/course/:courseId
+ * @access  Private/Admin
+ */
+export const getCourseEnrollments = async (req, res, next) => {
+  const { courseId } = req.params;
+
+  try {
+    const enrollments = await Enrollment.find({ course: courseId })
+      .populate('student', 'name email createdAt')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: enrollments.length,
+      data: enrollments,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Unenroll a student from a course (Admin forced)
+ * @route   DELETE /api/enrollments/course/:courseId/student/:studentId
+ * @access  Private/Admin
+ */
+export const removeStudentFromCourse = async (req, res, next) => {
+  const { courseId, studentId } = req.params;
+
+  try {
+    const enrollment = await Enrollment.findOne({ course: courseId, student: studentId });
+
+    if (!enrollment) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Student is not enrolled in this course',
+      });
+    }
+
+    await Enrollment.findByIdAndDelete(enrollment._id);
+
+    // Decrement the course's enrolledCount
+    await Course.findByIdAndUpdate(courseId, {
+      $inc: { enrolledCount: -1 },
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Student was successfully removed from the course',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
