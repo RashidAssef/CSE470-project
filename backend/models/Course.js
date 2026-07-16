@@ -32,6 +32,12 @@ const courseSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Course must have an instructor'],
     },
+    coInstructors: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      }
+    ],
     level: {
       type: String,
       enum: ['beginner', 'intermediate', 'advanced'],
