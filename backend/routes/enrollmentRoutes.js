@@ -6,6 +6,8 @@ import {
   unenrollFromCourse,
   getCourseEnrollments,
   removeStudentFromCourse,
+  enrollStudentInCourseAdmin,
+  enrollStudentsInCourseBulkAdmin,
 } from '../controllers/enrollmentController.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 
@@ -23,6 +25,8 @@ router.delete('/:id', protect, authorize('student'), unenrollFromCourse);
 // ADMIN MEMBERSHIP MANAGEMENT ROUTES
 // ==========================================
 router.get('/course/:courseId', protect, authorize('admin'), getCourseEnrollments);
+router.post('/course/:courseId/student/:studentId', protect, authorize('admin'), enrollStudentInCourseAdmin);
+router.post('/course/:courseId/students', protect, authorize('admin'), enrollStudentsInCourseBulkAdmin);
 router.delete('/course/:courseId/student/:studentId', protect, authorize('admin'), removeStudentFromCourse);
 
 export default router;

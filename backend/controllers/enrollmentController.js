@@ -1,5 +1,6 @@
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
+import User from '../models/User.js';
 
 /**
  * @desc    Enroll the logged-in student in a course
@@ -223,6 +224,168 @@ export const removeStudentFromCourse = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       message: 'Student was successfully removed from the course',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Enroll a student in a course (Admin force)
+ * @route   POST /api/enrollments/course/:courseId/student/:studentId
+ * @access  Private/Admin
+ */
+export const enrollStudentInCourseAdmin = async (req, res, next) => {
+  const { courseId, studentId } = req.params;
+
+  try {
+    // 1. Make sure the course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    // 2. Make sure the student exists and is indeed a student
+    const student = await User.findById(studentId);
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Student not found or user is not a student',
+      });
+    }
+
+    if (student.status !== 'active') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Cannot enroll an inactive or suspended student',
+      });
+    }
+
+    // 3. Prevent duplicate enrollment
+    const alreadyEnrolled = await Enrollment.findOne({
+      student: studentId,
+      course: courseId,
+    });
+
+    if (alreadyEnrolled) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Student is already enrolled in this course',
+      });
+    }
+
+    // 4. Create the enrollment
+    const enrollment = await Enrollment.create({
+      student: studentId,
+      course: courseId,
+      status: 'active',
+    });
+
+    // 5. Keep the course's denormalized enrolledCount in sync
+    course.enrolledCount += 1;
+    await course.save();
+
+    const populatedEnrollment = await enrollment.populate({
+      path: 'student',
+      select: 'name email createdAt',
+    });
+
+    res.status(201).json({
+      status: 'success',
+      message: `Successfully enrolled "${student.name}" in "${course.title}"`,
+      data: populatedEnrollment,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Student is already enrolled in this course',
+      });
+    }
+    next(error);
+  }
+};
+
+/**
+ * @desc    Enroll multiple students in a course (Admin force bulk)
+ * @route   POST /api/enrollments/course/:courseId/students
+ * @access  Private/Admin
+ */
+export const enrollStudentsInCourseBulkAdmin = async (req, res, next) => {
+  const { courseId } = req.params;
+  const { studentIds } = req.body;
+
+  try {
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide an array of student IDs to enroll',
+      });
+    }
+
+    // 1. Make sure the course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    let enrolledCount = 0;
+    const errors = [];
+    const enrollmentsToCreate = [];
+
+    // 2. Process each student
+    for (const studentId of studentIds) {
+      const student = await User.findById(studentId);
+      if (!student || student.role !== 'student') {
+        errors.push(`Student with ID ${studentId} not found or is not a student`);
+        continue;
+      }
+
+      if (student.status !== 'active') {
+        errors.push(`Student "${student.name}" is not active`);
+        continue;
+      }
+
+      const alreadyEnrolled = await Enrollment.findOne({
+        student: studentId,
+        course: courseId,
+      });
+
+      if (alreadyEnrolled) {
+        errors.push(`Student "${student.name}" is already enrolled`);
+        continue;
+      }
+
+      enrollmentsToCreate.push({
+        student: studentId,
+        course: courseId,
+        status: 'active',
+      });
+    }
+
+    if (enrollmentsToCreate.length > 0) {
+      // 3. Create all enrollments
+      await Enrollment.insertMany(enrollmentsToCreate);
+
+      // 4. Update enrolledCount on the course
+      course.enrolledCount += enrollmentsToCreate.length;
+      await course.save();
+      enrolledCount = enrollmentsToCreate.length;
+    }
+
+    res.status(201).json({
+      status: 'success',
+      message: `Successfully enrolled ${enrolledCount} student(s) in "${course.title}"`,
+      data: {
+        enrolledCount,
+        errors: errors.length > 0 ? errors : undefined,
+      },
     });
   } catch (error) {
     next(error);

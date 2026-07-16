@@ -352,4 +352,27 @@ export const enrollmentService = {
       method: 'DELETE',
     });
   },
+
+  /**
+   * Enroll a student in a course (Admin force)
+   * @param {string} courseId
+   * @param {string} studentId
+   */
+  enrollStudentInCourse: async (courseId, studentId) => {
+    return await apiFetch(`/enrollments/course/${courseId}/student/${studentId}`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Enroll multiple students in a course (Admin force bulk)
+   * @param {string} courseId
+   * @param {string[]} studentIds
+   */
+  enrollStudentsInCourseBulk: async (courseId, studentIds) => {
+    return await apiFetch(`/enrollments/course/${courseId}/students`, {
+      method: 'POST',
+      body: { studentIds },
+    });
+  },
 };

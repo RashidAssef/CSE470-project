@@ -83,6 +83,12 @@ export default function AdminDashboard() {
   const [adminCoDropdownOpen, setAdminCoDropdownOpen] = useState(false);
   const [adminModalCoDropdownOpen, setAdminModalCoDropdownOpen] = useState(false);
   const [adminModalCoInstructorsDropdownOpen, setAdminModalCoInstructorsDropdownOpen] = useState(false);
+  
+  // Student Enrollment State
+  const [activeStudents, setActiveStudents] = useState([]);
+  const [adminStudentSearch, setAdminStudentSearch] = useState('');
+  const [adminStudentDropdownOpen, setAdminStudentDropdownOpen] = useState(false);
+  const [selectedStudentsToEnroll, setSelectedStudentsToEnroll] = useState([]);
 
   // Authentication Load
   useEffect(() => {
@@ -103,6 +109,7 @@ export default function AdminDashboard() {
     } else if (activeTab === 'courses') {
       loadCourses();
       loadActiveInstructors();
+      loadActiveStudents();
       loadCategories();
     }
     loadStats();
@@ -270,6 +277,16 @@ export default function AdminDashboard() {
     }
   };
 
+  // Load Active Students
+  const loadActiveStudents = async () => {
+    try {
+      const data = await adminService.getUsers({ role: 'student', status: 'active' });
+      setActiveStudents(data);
+    } catch (err) {
+      console.error('Failed to load active students:', err.message);
+    }
+  };
+
   // Create Course (Admin)
   const handleCourseSubmit = async (e) => {
     e.preventDefault();
@@ -333,6 +350,45 @@ export default function AdminDashboard() {
       loadCourses();
     } catch (err) {
       alert(err.message || 'Failed to remove student');
+    } finally {
+      setMemberActionLoading(false);
+    }
+  };
+
+  // Admin enrolls student to course
+  const handleEnrollStudent = async (studentId) => {
+    setMemberActionLoading(true);
+    setMembersError('');
+    try {
+      await enrollmentService.enrollStudentInCourse(selectedCourse._id, studentId);
+      // Reload enrollments
+      const data = await enrollmentService.getCourseEnrollments(selectedCourse._id);
+      setCourseEnrollments(data);
+      // Reload courses list to update enrolledCount
+      loadCourses();
+    } catch (err) {
+      setMembersError(err.message || 'Failed to enroll student');
+    } finally {
+      setMemberActionLoading(false);
+    }
+  };
+
+  // Admin enrolls multiple students in bulk
+  const handleEnrollStudentsBulk = async () => {
+    if (selectedStudentsToEnroll.length === 0) return;
+    setMemberActionLoading(true);
+    setMembersError('');
+    try {
+      await enrollmentService.enrollStudentsInCourseBulk(selectedCourse._id, selectedStudentsToEnroll);
+      setSelectedStudentsToEnroll([]);
+      setAdminStudentDropdownOpen(false);
+      // Reload enrollments
+      const data = await enrollmentService.getCourseEnrollments(selectedCourse._id);
+      setCourseEnrollments(data);
+      // Reload courses list to update enrolledCount
+      loadCourses();
+    } catch (err) {
+      setMembersError(err.message || 'Failed to enroll selected students');
     } finally {
       setMemberActionLoading(false);
     }
@@ -1182,7 +1238,14 @@ export default function AdminDashboard() {
                 </p>
               </div>
               <button 
-                onClick={() => { setMembersModalOpen(false); setSelectedCourse(null); setAdminModalCoInstructorSearch(''); }}
+                onClick={() => { 
+                  setMembersModalOpen(false); 
+                  setSelectedCourse(null); 
+                  setAdminModalCoInstructorSearch(''); 
+                  setAdminStudentSearch('');
+                  setAdminStudentDropdownOpen(false);
+                  setSelectedStudentsToEnroll([]);
+                }}
                 className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
               >
                 <X size={20} />
@@ -1366,6 +1429,84 @@ export default function AdminDashboard() {
                     {membersError}
                   </div>
                 )}
+                           {/* Searchable Student Dropdown to Enroll */}
+                <div className="relative mb-4">
+                  <label className="text-xs font-semibold text-slate uppercase tracking-wider block mb-1.5">
+                    Enroll Students
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setAdminStudentDropdownOpen(!adminStudentDropdownOpen)}
+                    className="w-full flex items-center justify-between rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink text-left focus:border-primary focus:outline-none"
+                  >
+                    <span className="truncate text-slate">
+                      {selectedStudentsToEnroll.length === 0
+                        ? 'Select Students to Enroll...'
+                        : `${selectedStudentsToEnroll.length} student(s) selected`}
+                    </span>
+                    <span className="text-slate text-xs">▼</span>
+                  </button>
+
+                  {adminStudentDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-45" onClick={() => setAdminStudentDropdownOpen(false)} />
+                      <div className="absolute z-50 left-0 right-0 mt-1 rounded-xl border border-line bg-paper-alt shadow-lg p-2 max-h-60 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-1 duration-100">
+                        <input
+                          type="text"
+                          value={adminStudentSearch}
+                          onChange={(e) => setAdminStudentSearch(e.target.value)}
+                          placeholder="Search student by name/email..."
+                          className="w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-slate focus:border-primary focus:outline-none mb-2"
+                        />
+                        <div className="overflow-y-auto flex flex-col gap-1.5 max-h-40 p-1">
+                          {activeStudents
+                            .filter(student => !courseEnrollments.some(e => e.student?._id === student._id))
+                            .filter(student =>
+                              student.name.toLowerCase().includes(adminStudentSearch.toLowerCase()) ||
+                              student.email.toLowerCase().includes(adminStudentSearch.toLowerCase())
+                            ).length === 0 ? (
+                            <span className="text-xs text-slate p-2">No eligible students found</span>
+                          ) : (
+                            activeStudents
+                              .filter(student => !courseEnrollments.some(e => e.student?._id === student._id))
+                              .filter(student =>
+                                student.name.toLowerCase().includes(adminStudentSearch.toLowerCase()) ||
+                                student.email.toLowerCase().includes(adminStudentSearch.toLowerCase())
+                              )
+                              .map(student => (
+                                <label key={student._id} className="flex items-center gap-2 px-2 py-1.5 text-xs text-ink-soft cursor-pointer hover:bg-paper rounded-lg transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedStudentsToEnroll.includes(student._id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedStudentsToEnroll(prev => [...prev, student._id]);
+                                      } else {
+                                        setSelectedStudentsToEnroll(prev => prev.filter(id => id !== student._id));
+                                      }
+                                    }}
+                                    className="rounded border-line text-primary focus:ring-primary h-3.5 w-3.5"
+                                  />
+                                  <span>{student.name} ({student.email})</span>
+                                </label>
+                              ))
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {selectedStudentsToEnroll.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleEnrollStudentsBulk}
+                    disabled={memberActionLoading}
+                    className="w-full bg-primary text-white text-xs font-semibold py-2 px-4 rounded-xl hover:bg-primary-dark transition-colors mb-4 disabled:opacity-75"
+                  >
+                    {memberActionLoading ? 'Enrolling...' : `Enroll Selected (${selectedStudentsToEnroll.length})`}
+                  </button>
+                )}
 
                 {enrollmentsLoading ? (
                   <div className="flex flex-col items-center py-12">
@@ -1410,7 +1551,14 @@ export default function AdminDashboard() {
             <div className="px-6 py-4 border-t border-line flex justify-end">
               <button
                 type="button"
-                onClick={() => { setMembersModalOpen(false); setSelectedCourse(null); setAdminModalCoInstructorSearch(''); }}
+                onClick={() => { 
+                  setMembersModalOpen(false); 
+                  setSelectedCourse(null); 
+                  setAdminModalCoInstructorSearch(''); 
+                  setAdminStudentSearch('');
+                  setAdminStudentDropdownOpen(false);
+                  setSelectedStudentsToEnroll([]);
+                }}
                 className="px-5 py-2 border border-line text-xs font-semibold rounded-xl text-ink-soft hover:bg-paper transition-colors"
               >
                 Close Panel
