@@ -218,3 +218,77 @@ export const adminService = {
     });
   }
 };
+
+// ==========================================
+// COURSE BROWSING API SERVICES
+// ==========================================
+export const courseService = {
+  /**
+   * Get all published courses, with optional filters
+   * @param {Object} [filters={}] - Optional filters: { category, level, search }
+   */
+  getCourses: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.level) queryParams.append('level', filters.level);
+    if (filters.search) queryParams.append('search', filters.search);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/courses${queryString ? `?${queryString}` : ''}`;
+
+    const res = await apiFetch(endpoint);
+    return res.data;
+  },
+
+  /**
+   * Get a single course's details
+   * @param {string} courseId
+   */
+  getCourseById: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}`);
+    return res.data;
+  },
+};
+
+// ==========================================
+// ENROLLMENT API SERVICES
+// ==========================================
+export const enrollmentService = {
+  /**
+   * Enroll the logged-in student in a course
+   * @param {string} courseId
+   */
+  enroll: async (courseId) => {
+    const res = await apiFetch(`/enrollments/${courseId}`, {
+      method: 'POST',
+    });
+    return res;
+  },
+
+  /**
+   * Get all courses the logged-in student is enrolled in
+   */
+  getMyEnrollments: async () => {
+    const res = await apiFetch('/enrollments/my');
+    return res.data;
+  },
+
+  /**
+   * Check whether the logged-in user is enrolled in a specific course
+   * @param {string} courseId
+   */
+  getEnrollmentStatus: async (courseId) => {
+    const res = await apiFetch(`/enrollments/status/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Unenroll from a course
+   * @param {string} enrollmentId
+   */
+  unenroll: async (enrollmentId) => {
+    return await apiFetch(`/enrollments/${enrollmentId}`, {
+      method: 'DELETE',
+    });
+  },
+};

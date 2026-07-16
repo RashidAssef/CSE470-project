@@ -1,4 +1,5 @@
-import { Star, Users, Layers, Bookmark, Search } from 'lucide-react'
+import { Star, Users, Layers, Bookmark } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { courses } from '../data/courses.js'
 
 const accentMap = {
@@ -21,10 +22,12 @@ export default function FeaturedCourses() {
             </h2>
           </div>
 
-          <div className="flex items-center gap-2 rounded-full border border-line bg-paper-alt px-4 py-2.5 text-sm text-slate">
-            <Search size={16} />
-            <span>Search by category, instructor, or level</span>
-          </div>
+          <Link
+            to="/courses"
+            className="flex items-center gap-2 rounded-full border border-line bg-paper-alt px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-primary"
+          >
+            Browse the full catalog →
+          </Link>
         </div>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
