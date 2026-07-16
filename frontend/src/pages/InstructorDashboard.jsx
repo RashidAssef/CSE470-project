@@ -551,19 +551,7 @@ export default function InstructorDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5">
-                  Thumbnail Image URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  name="thumbnail"
-                  value={formData.thumbnail}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink placeholder:text-slate focus:border-primary focus:outline-none"
-                />
-              </div>
+
 
               {/* Modal Footer Buttons */}
               <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-line">
