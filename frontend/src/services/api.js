@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://localhost:5000/api';
+export const UPLOADS_BASE_URL = 'http://localhost:5000';
 
 /**
  * Core utility to perform HTTP requests to the backend.
@@ -287,6 +288,71 @@ export const courseService = {
    */
   getActiveInstructors: async () => {
     const res = await apiFetch('/courses/instructors/active');
+    return res.data;
+  },
+
+  updateCourseModules: async (courseId, modules) => {
+    const res = await apiFetch(`/courses/${courseId}/modules`, {
+      method: 'PUT',
+      body: { modules },
+    });
+    return res.data;
+  },
+};
+
+// ==========================================
+// COURSE FILES & SUBMISSIONS
+// ==========================================
+const uploadFetch = async (endpoint, formData) => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || response.statusText || 'Upload failed');
+  }
+  return data;
+};
+
+export const courseFileService = {
+  getMaterials: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/materials`);
+    return res.data;
+  },
+
+  uploadMaterial: async (courseId, file, moduleOrder = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (moduleOrder != null) {
+      formData.append('moduleOrder', String(moduleOrder));
+    }
+    const res = await uploadFetch(`/courses/${courseId}/materials`, formData);
+    return res.data;
+  },
+
+  getMySubmissions: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/submissions/mine`);
+    return res.data;
+  },
+
+  getCourseSubmissions: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/submissions`);
+    return res.data;
+  },
+
+  uploadSubmission: async (courseId, file, title) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+    const res = await uploadFetch(`/courses/${courseId}/submissions`, formData);
     return res.data;
   },
 };

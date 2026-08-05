@@ -5,6 +5,7 @@ import Signup from './pages/Signup.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import StudentDashboard from './pages/StudentDashboard.jsx';
 import InstructorDashboard from './pages/InstructorDashboard.jsx';
+import InstructorCourseManage from './pages/InstructorCourseManage.jsx';
 import BrowseCourses from './pages/BrowseCourses.jsx';
 import CourseDetail from './pages/CourseDetail.jsx';
 import Notifications from './pages/Notifications.jsx';
@@ -51,6 +52,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['instructor']}>
             <InstructorDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/instructor/courses/:courseId/manage"
+        element={
+          <ProtectedRoute allowedRoles={['instructor']}>
+            <InstructorCourseManage />
           </ProtectedRoute>
         }
       />

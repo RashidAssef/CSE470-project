@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -14,6 +16,8 @@ dotenv.config();
 // Connect to MongoDB
 connectDB();
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const app = express();
 
 // Express Middlewares
@@ -22,6 +26,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json()); // Allow parsing of JSON bodies
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Route Mounts
 app.use('/api/auth', authRoutes);

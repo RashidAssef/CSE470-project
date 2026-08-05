@@ -1,6 +1,7 @@
 import Course from '../models/Course.js';
 import Category from '../models/Category.js';
 import User from '../models/User.js';
+import { canManageCourse } from '../utils/courseAccess.js';
 
 /**
  * @desc    Get all published courses, with optional filters
@@ -61,9 +62,14 @@ export const getCourseById = async (req, res, next) => {
       });
     }
 
+    const data = course.toObject();
+    if (data.modules?.length) {
+      data.modules.sort((a, b) => a.order - b.order);
+    }
+
     res.status(200).json({
       status: 'success',
-      data: course,
+      data,
     });
   } catch (error) {
     next(error);
@@ -305,6 +311,68 @@ export const getActiveInstructors = async (req, res, next) => {
       data: instructors
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Replace the ordered learning-path modules for a course
+ * @route   PUT /api/courses/:id/modules
+ * @access  Private/Instructor (owner or co-instructor) or Admin
+ */
+export const updateCourseModules = async (req, res, next) => {
+  const { id } = req.params;
+  const { modules } = req.body;
+
+  try {
+    const course = await Course.findById(id);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    if (!canManageCourse(course, req.user)) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not allowed to edit this course learning path',
+      });
+    }
+
+    if (!Array.isArray(modules)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'modules must be an array',
+      });
+    }
+
+    const cleaned = modules.map((mod, index) => {
+      const title = (mod.title || '').trim();
+      if (!title) {
+        throw Object.assign(new Error('Each module needs a title'), { statusCode: 400 });
+      }
+      const order = Number(mod.order) || index + 1;
+      return {
+        title,
+        description: (mod.description || '').trim(),
+        order,
+      };
+    });
+
+    cleaned.sort((a, b) => a.order - b.order);
+    course.modules = cleaned;
+    await course.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Learning path modules updated',
+      data: course.modules,
+    });
+  } catch (error) {
+    if (error.statusCode === 400) {
+      return res.status(400).json({ status: 'fail', message: error.message });
+    }
     next(error);
   }
 };

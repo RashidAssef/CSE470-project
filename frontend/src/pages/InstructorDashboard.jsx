@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   LogOut, 
   Plus, 
@@ -337,6 +337,12 @@ export default function InstructorDashboard() {
                           {course.price > 0 ? `৳${course.price}` : 'Free'}
                         </span>
                       </div>
+                      <Link
+                        to={`/instructor/courses/${course._id}/manage`}
+                        className="mt-4 block w-full rounded-xl border border-line py-2.5 text-center text-sm font-semibold text-primary hover:bg-paper transition-colors"
+                      >
+                        Learning path & files
+                      </Link>
                     </div>
                   ))}
                 </div>

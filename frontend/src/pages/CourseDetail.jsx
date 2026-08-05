@@ -6,10 +6,14 @@ import {
   BarChart3,
   CircleCheck,
   Loader2,
+  ListOrdered,
+  FileText,
+  Upload,
 } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
-import { courseService, enrollmentService, authService } from '../services/api.js'
+import FilePicker from '../components/FilePicker.jsx'
+import { courseService, enrollmentService, authService, courseFileService, UPLOADS_BASE_URL } from '../services/api.js'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -30,6 +34,11 @@ export default function CourseDetail() {
   const [enrollmentId, setEnrollmentId] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
+  const [materials, setMaterials] = useState([])
+  const [mySubmissions, setMySubmissions] = useState([])
+  const [submitTitle, setSubmitTitle] = useState('')
+  const [submitFile, setSubmitFile] = useState(null)
+  const [submitLoading, setSubmitLoading] = useState(false)
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -39,11 +48,22 @@ export default function CourseDetail() {
         const data = await courseService.getCourseById(id)
         setCourse(data)
 
+        try {
+          const mats = await courseFileService.getMaterials(id)
+          setMaterials(mats)
+        } catch {
+          setMaterials([])
+        }
+
         // Only students who are logged in can have an enrollment status
         if (currentUser?.role === 'student') {
           const status = await enrollmentService.getEnrollmentStatus(id)
           setEnrolled(status.enrolled)
           setEnrollmentId(status.enrollmentId)
+          if (status.enrolled) {
+            const subs = await courseFileService.getMySubmissions(id)
+            setMySubmissions(subs)
+          }
         }
       } catch (err) {
         setError(err.message || 'Failed to load course')
@@ -97,6 +117,28 @@ export default function CourseDetail() {
       setActionLoading(false)
     }
   }
+
+  const handleSubmitWork = async (e) => {
+    e.preventDefault()
+    if (!submitFile || !submitTitle.trim()) return
+    setSubmitLoading(true)
+    setActionMessage('')
+    try {
+      await courseFileService.uploadSubmission(id, submitFile, submitTitle.trim())
+      const subs = await courseFileService.getMySubmissions(id)
+      setMySubmissions(subs)
+      setSubmitTitle('')
+      setSubmitFile(null)
+      e.target.reset()
+      setActionMessage('Submission uploaded successfully.')
+    } catch (err) {
+      setActionMessage(err.message || 'Upload failed')
+    } finally {
+      setSubmitLoading(false)
+    }
+  }
+
+  const sortedModules = [...(course?.modules || [])].sort((a, b) => a.order - b.order)
 
   if (loading) {
     return (
@@ -165,6 +207,104 @@ export default function CourseDetail() {
                 {levelLabels[course.level]} level
               </span>
             </div>
+
+            {sortedModules.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <ListOrdered size={20} className="text-primary" />
+                  Learning path
+                </h2>
+                <ol className="mt-4 space-y-4">
+                  {sortedModules.map((mod) => (
+                    <li
+                      key={`${mod.order}-${mod.title}`}
+                      className="rounded-xl border border-line bg-paper-alt px-4 py-3"
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                        Module {mod.order}
+                      </p>
+                      <p className="mt-1 font-semibold text-ink">{mod.title}</p>
+                      {mod.description && (
+                        <p className="mt-1 text-sm text-ink-soft">{mod.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {materials.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <FileText size={20} className="text-primary" />
+                  Learning materials
+                </h2>
+                <ul className="mt-4 space-y-2">
+                  {materials.map((file) => (
+                    <li key={file._id}>
+                      <a
+                        href={`${UPLOADS_BASE_URL}${file.fileUrl}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {file.originalName}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {enrolled && currentUser?.role === 'student' && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <Upload size={20} className="text-primary" />
+                  Submit your work
+                </h2>
+                <form onSubmit={handleSubmitWork} className="mt-4 flex flex-col gap-3 max-w-md">
+                  <input
+                    type="text"
+                    value={submitTitle}
+                    onChange={(e) => setSubmitTitle(e.target.value)}
+                    placeholder="Assignment or project title"
+                    required
+                    className="rounded-xl border border-line px-4 py-2.5 text-sm"
+                  />
+                  <FilePicker
+                    id="student-submission-file"
+                    required
+                    disabled={submitLoading}
+                    selectedName={submitFile?.name}
+                    onChange={(e) => setSubmitFile(e.target.files?.[0] || null)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={submitLoading}
+                    className="rounded-full bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60 w-fit px-6"
+                  >
+                    {submitLoading ? 'Uploading…' : 'Upload submission'}
+                  </button>
+                </form>
+                {mySubmissions.length > 0 && (
+                  <ul className="mt-6 space-y-3 text-sm">
+                    {mySubmissions.map((sub) => (
+                      <li key={sub._id} className="rounded-lg border border-line bg-paper-alt px-4 py-3">
+                        <p className="font-medium text-ink">{sub.title}</p>
+                        <a
+                          href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-primary hover:underline"
+                        >
+                          {sub.originalName}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </div>
 
           {/* Enrollment card */}
