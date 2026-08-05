@@ -376,3 +376,53 @@ export const enrollmentService = {
     });
   },
 };
+
+// ==========================================
+// NOTIFICATION API SERVICES
+// ==========================================
+export const notificationService = {
+  /**
+   * Get the logged-in user's notifications (most recent first, max 50)
+   */
+  getMyNotifications: async () => {
+    const res = await apiFetch('/notifications');
+    return res; // caller needs both data and unreadCount
+  },
+
+  /**
+   * Cheap poll target — just the unread count, not the full list
+   */
+  getUnreadCount: async () => {
+    const res = await apiFetch('/notifications/unread-count');
+    return res.data.unreadCount;
+  },
+
+  /**
+   * Mark a single notification as read
+   * @param {string} notificationId
+   */
+  markAsRead: async (notificationId) => {
+    return await apiFetch(`/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Mark all of the logged-in user's notifications as read
+   */
+  markAllAsRead: async () => {
+    return await apiFetch('/notifications/read-all', {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Delete a single notification
+   * @param {string} notificationId
+   */
+  deleteNotification: async (notificationId) => {
+    return await apiFetch(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  },
+};

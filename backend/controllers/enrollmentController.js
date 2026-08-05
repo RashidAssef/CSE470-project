@@ -1,6 +1,7 @@
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
 import User from '../models/User.js';
+import { createNotification, notifyManyUsers } from '../services/notificationService.js';
 
 /**
  * @desc    Enroll the logged-in student in a course
@@ -49,6 +50,15 @@ export const enrollInCourse = async (req, res, next) => {
     // 4. Keep the course's denormalized enrolledCount in sync
     course.enrolledCount += 1;
     await course.save();
+
+    // 5. Notify the student
+    await createNotification({
+      user: req.user._id,
+      type: 'enrollment',
+      title: 'Enrollment confirmed',
+      message: `You're enrolled in "${course.title}". Head to the course page to get started.`,
+      link: `/courses/${course._id}`,
+    });
 
     const populatedEnrollment = await enrollment.populate({
       path: 'course',
@@ -160,8 +170,18 @@ export const unenrollFromCourse = async (req, res, next) => {
     await Enrollment.findByIdAndDelete(id);
 
     // Keep the course's denormalized enrolledCount in sync
-    await Course.findByIdAndUpdate(enrollment.course, {
-      $inc: { enrolledCount: -1 },
+    const course = await Course.findByIdAndUpdate(
+      enrollment.course,
+      { $inc: { enrolledCount: -1 } },
+      { new: true }
+    );
+
+    await createNotification({
+      user: req.user._id,
+      type: 'unenrollment',
+      title: 'Unenrolled from course',
+      message: `You've been unenrolled from "${course?.title || 'a course'}".`,
+      link: '/courses',
     });
 
     res.status(200).json({
@@ -217,8 +237,18 @@ export const removeStudentFromCourse = async (req, res, next) => {
     await Enrollment.findByIdAndDelete(enrollment._id);
 
     // Decrement the course's enrolledCount
-    await Course.findByIdAndUpdate(courseId, {
-      $inc: { enrolledCount: -1 },
+    const course = await Course.findByIdAndUpdate(
+      courseId,
+      { $inc: { enrolledCount: -1 } },
+      { new: true }
+    );
+
+    await createNotification({
+      user: studentId,
+      type: 'unenrollment',
+      title: 'Removed from course',
+      message: `You've been removed from "${course?.title || 'a course'}" by an administrator.`,
+      link: '/courses',
     });
 
     res.status(200).json({
@@ -287,6 +317,15 @@ export const enrollStudentInCourseAdmin = async (req, res, next) => {
     // 5. Keep the course's denormalized enrolledCount in sync
     course.enrolledCount += 1;
     await course.save();
+
+    // 6. Notify the student
+    await createNotification({
+      user: studentId,
+      type: 'enrollment',
+      title: 'Enrolled in a course',
+      message: `An administrator enrolled you in "${course.title}".`,
+      link: `/courses/${course._id}`,
+    });
 
     const populatedEnrollment = await enrollment.populate({
       path: 'student',
@@ -377,6 +416,17 @@ export const enrollStudentsInCourseBulkAdmin = async (req, res, next) => {
       course.enrolledCount += enrollmentsToCreate.length;
       await course.save();
       enrolledCount = enrollmentsToCreate.length;
+
+      // 5. Notify all newly enrolled students in one batch insert
+      await notifyManyUsers(
+        enrollmentsToCreate.map((e) => e.student),
+        {
+          type: 'enrollment',
+          title: 'Enrolled in a course',
+          message: `An administrator enrolled you in "${course.title}".`,
+          link: `/courses/${course._id}`,
+        }
+      );
     }
 
     res.status(201).json({
