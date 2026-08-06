@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   LogOut, 
   Plus, 
@@ -11,9 +11,12 @@ import {
   X, 
   CheckCircle,
   FileText,
-  Video
+  Video,
+  User,
+  Settings
 } from 'lucide-react';
 import { authService, courseService, adminService } from '../services/api.js';
+import NotificationBell from '../components/NotificationBell.jsx';
 
 export default function InstructorDashboard() {
   const navigate = useNavigate();
@@ -23,6 +26,7 @@ export default function InstructorDashboard() {
   const [allInstructorsList, setAllInstructorsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
   
   // Stats
   const [stats, setStats] = useState({
@@ -47,6 +51,62 @@ export default function InstructorDashboard() {
   });
   const [coInstructorSearch, setCoInstructorSearch] = useState('');
   const [coDropdownOpen, setCoDropdownOpen] = useState(false);
+
+  // Profile modal states & handlers
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    occupation: '',
+    password: ''
+  });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const handleOpenProfileModal = () => {
+    setProfileForm({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      occupation: user?.occupation || '',
+      password: ''
+    });
+    setProfileError('');
+    setProfileSuccess('');
+    setIsProfileModalOpen(true);
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileError('');
+    setProfileSuccess('');
+    try {
+      const updateData = {
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        occupation: profileForm.occupation
+      };
+      if (profileForm.password.trim()) {
+        updateData.password = profileForm.password;
+      }
+      
+      const updatedUser = await authService.updateProfile(updateData);
+      setUser(updatedUser);
+      setProfileSuccess('Profile updated successfully.');
+      setTimeout(() => {
+        setIsProfileModalOpen(false);
+      }, 1500);
+    } catch (err) {
+      setProfileError(err.message || 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     const initDashboard = async () => {
@@ -179,6 +239,19 @@ export default function InstructorDashboard() {
             <span className="text-xs font-semibold text-ink">{user?.name}</span>
             <span className="text-[10px] text-slate uppercase tracking-wider">{user?.status} account</span>
           </div>
+          
+          {/* Notification Icon */}
+          <NotificationBell />
+
+          {/* Profile Settings Icon */}
+          <button
+            onClick={handleOpenProfileModal}
+            title="Profile Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-paper hover:text-primary"
+          >
+            <Settings size={20} />
+          </button>
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3.5 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
@@ -337,6 +410,12 @@ export default function InstructorDashboard() {
                           {course.price > 0 ? `৳${course.price}` : 'Free'}
                         </span>
                       </div>
+                      <Link
+                        to={`/instructor/courses/${course._id}/manage`}
+                        className="mt-4 block w-full rounded-xl border border-line py-2.5 text-center text-sm font-semibold text-primary hover:bg-paper transition-colors"
+                      >
+                        Learning path & files
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -575,6 +654,126 @@ export default function InstructorDashboard() {
           </div>
         </div>
       )}
+
+      {/* PROFILE SETTINGS MODAL */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-paper-alt rounded-2xl shadow-xl border border-line flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold text-ink flex items-center gap-2">
+                <User size={20} className="text-primary" />
+                Profile Settings
+              </h2>
+              <button 
+                onClick={() => setIsProfileModalOpen(false)}
+                className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body (Scrollable Form) */}
+            <form onSubmit={handleProfileUpdate} className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+              {profileError && (
+                <div className="p-3 bg-red-50 text-red-600 rounded-xl border border-red-100 flex items-center gap-2 text-sm">
+                  <AlertCircle size={16} /> {profileError}
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="p-3 bg-teal-50 text-teal border border-teal-100 flex items-center gap-2 text-sm">
+                  <CheckCircle size={16} className="text-teal" /> {profileSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5 font-sans">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5 font-sans">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5 font-sans">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. +8801700000000"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5 font-sans">
+                  Occupation / Bio Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Software Engineer, University Professor"
+                  value={profileForm.occupation}
+                  onChange={(e) => setProfileForm({ ...profileForm, occupation: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1.5 font-sans">
+                  New Password (leave blank to keep current)
+                </label>
+                <input
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={profileForm.password}
+                  onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="px-5 py-2.5 border border-line text-sm font-semibold rounded-xl text-ink-soft hover:bg-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={profileLoading}
+                  className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition-all disabled:opacity-70 flex items-center gap-1.5"
+                >
+                  {profileLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

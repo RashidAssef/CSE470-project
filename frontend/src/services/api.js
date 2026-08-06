@@ -1,4 +1,5 @@
 const API_BASE_URL = 'http://localhost:5000/api';
+export const UPLOADS_BASE_URL = 'http://localhost:5000';
 
 /**
  * Core utility to perform HTTP requests to the backend.
@@ -126,6 +127,54 @@ export const authService = {
       authService.logout();
       throw error;
     }
+  },
+
+  /**
+   * Update profile details
+   * @param {Object} profileData
+   */
+  updateProfile: async (profileData) => {
+    const res = await apiFetch('/auth/profile', {
+      method: 'PUT',
+      body: profileData,
+    });
+    if (res.data) {
+      const current = authService.getCurrentUser();
+      localStorage.setItem('user', JSON.stringify({
+        ...current,
+        name: res.data.name,
+        email: res.data.email,
+        phone: res.data.phone,
+        occupation: res.data.occupation,
+      }));
+    }
+    return res.data;
+  },
+
+  /**
+   * Get all bookmarked courses in wishlist
+   */
+  getWishlist: async () => {
+    const res = await apiFetch('/auth/wishlist');
+    return res.data;
+  },
+
+  /**
+   * Add course to wishlist
+   */
+  addToWishlist: async (courseId) => {
+    return await apiFetch(`/auth/wishlist/${courseId}`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Remove course from wishlist
+   */
+  removeFromWishlist: async (courseId) => {
+    return await apiFetch(`/auth/wishlist/${courseId}`, {
+      method: 'DELETE',
+    });
   }
 };
 
@@ -289,6 +338,71 @@ export const courseService = {
     const res = await apiFetch('/courses/instructors/active');
     return res.data;
   },
+
+  updateCourseModules: async (courseId, modules) => {
+    const res = await apiFetch(`/courses/${courseId}/modules`, {
+      method: 'PUT',
+      body: { modules },
+    });
+    return res.data;
+  },
+};
+
+// ==========================================
+// COURSE FILES & SUBMISSIONS
+// ==========================================
+const uploadFetch = async (endpoint, formData) => {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || response.statusText || 'Upload failed');
+  }
+  return data;
+};
+
+export const courseFileService = {
+  getMaterials: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/materials`);
+    return res.data;
+  },
+
+  uploadMaterial: async (courseId, file, moduleOrder = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (moduleOrder != null) {
+      formData.append('moduleOrder', String(moduleOrder));
+    }
+    const res = await uploadFetch(`/courses/${courseId}/materials`, formData);
+    return res.data;
+  },
+
+  getMySubmissions: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/submissions/mine`);
+    return res.data;
+  },
+
+  getCourseSubmissions: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/submissions`);
+    return res.data;
+  },
+
+  uploadSubmission: async (courseId, file, title) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', title);
+    const res = await uploadFetch(`/courses/${courseId}/submissions`, formData);
+    return res.data;
+  },
 };
 
 // ==========================================
@@ -373,6 +487,64 @@ export const enrollmentService = {
     return await apiFetch(`/enrollments/course/${courseId}/students`, {
       method: 'POST',
       body: { studentIds },
+    });
+  },
+
+  /**
+   * Get all active students
+   */
+  getActiveStudents: async () => {
+    const res = await apiFetch('/enrollments/active-students');
+    return res.data;
+  },
+};
+
+// ==========================================
+// NOTIFICATION API SERVICES
+// ==========================================
+export const notificationService = {
+  /**
+   * Get the logged-in user's notifications (most recent first, max 50)
+   */
+  getMyNotifications: async () => {
+    const res = await apiFetch('/notifications');
+    return res; // caller needs both data and unreadCount
+  },
+
+  /**
+   * Cheap poll target — just the unread count, not the full list
+   */
+  getUnreadCount: async () => {
+    const res = await apiFetch('/notifications/unread-count');
+    return res.data.unreadCount;
+  },
+
+  /**
+   * Mark a single notification as read
+   * @param {string} notificationId
+   */
+  markAsRead: async (notificationId) => {
+    return await apiFetch(`/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Mark all of the logged-in user's notifications as read
+   */
+  markAllAsRead: async () => {
+    return await apiFetch('/notifications/read-all', {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Delete a single notification
+   * @param {string} notificationId
+   */
+  deleteNotification: async (notificationId) => {
+    return await apiFetch(`/notifications/${notificationId}`, {
+      method: 'DELETE',
     });
   },
 };

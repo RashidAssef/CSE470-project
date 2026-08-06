@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Menu, X, Route as RouteIcon } from 'lucide-react'
 import { authService } from '../services/api.js'
+import NotificationBell from './NotificationBell.jsx'
 
 const links = [
   { label: 'Explore courses', href: '/courses' },
@@ -67,6 +68,7 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
+              <NotificationBell />
               <Link
                 to={getDashboardPath()}
                 className="text-sm font-semibold text-ink-soft transition-colors hover:text-primary mr-2"
@@ -135,6 +137,13 @@ export default function Navbar() {
             <div className="mt-2 flex flex-col gap-3">
               {user ? (
                 <>
+                  <Link
+                    to="/notifications"
+                    onClick={() => setOpen(false)}
+                    className="rounded-full border border-line px-5 py-2.5 text-center text-sm font-semibold text-ink"
+                  >
+                    Notifications
+                  </Link>
                   <Link
                     to={getDashboardPath()}
                     onClick={() => setOpen(false)}

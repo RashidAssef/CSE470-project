@@ -64,6 +64,27 @@ const courseSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Ordered learning path modules for this course (Module 1 → Module 2 → …)
+    modules: [
+      {
+        title: {
+          type: String,
+          required: true,
+          trim: true,
+          maxlength: 120,
+        },
+        description: {
+          type: String,
+          default: '',
+          maxlength: 1000,
+        },
+        order: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

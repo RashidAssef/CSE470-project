@@ -12,6 +12,7 @@ node_modules/
 # Production builds
 dist/
 build/
+backend/uploads/
 
 # IDEs & System files
 .vscode/

@@ -1,6 +1,8 @@
 import Enrollment from '../models/Enrollment.js';
 import Course from '../models/Course.js';
 import User from '../models/User.js';
+import { createNotification, notifyManyUsers } from '../services/notificationService.js';
+import { canManageCourse } from '../utils/courseAccess.js';
 
 /**
  * @desc    Enroll the logged-in student in a course
@@ -49,6 +51,37 @@ export const enrollInCourse = async (req, res, next) => {
     // 4. Keep the course's denormalized enrolledCount in sync
     course.enrolledCount += 1;
     await course.save();
+
+    // 5. Notify the student
+    await createNotification({
+      user: req.user._id,
+      type: 'enrollment',
+      title: 'Enrollment confirmed',
+      message: `You're enrolled in "${course.title}". Head to the course page to get started.`,
+      link: `/courses/${course._id}`,
+    });
+
+    // Notify the primary instructor and all co-instructors (but not if they are admins)
+    const instructorsToNotify = [];
+    if (course.instructor) {
+      instructorsToNotify.push(course.instructor.toString());
+    }
+    if (course.coInstructors && course.coInstructors.length > 0) {
+      course.coInstructors.forEach((id) => {
+        const idStr = id.toString();
+        if (!instructorsToNotify.includes(idStr)) {
+          instructorsToNotify.push(idStr);
+        }
+      });
+    }
+    if (instructorsToNotify.length > 0) {
+      await notifyManyUsers(instructorsToNotify, {
+        type: 'enrollment',
+        title: 'New student enrolled',
+        message: `Student "${req.user.name}" has enrolled in your course "${course.title}".`,
+        link: `/instructor/courses/${course._id}/manage`,
+      });
+    }
 
     const populatedEnrollment = await enrollment.populate({
       path: 'course',
@@ -160,8 +193,18 @@ export const unenrollFromCourse = async (req, res, next) => {
     await Enrollment.findByIdAndDelete(id);
 
     // Keep the course's denormalized enrolledCount in sync
-    await Course.findByIdAndUpdate(enrollment.course, {
-      $inc: { enrolledCount: -1 },
+    const course = await Course.findByIdAndUpdate(
+      enrollment.course,
+      { $inc: { enrolledCount: -1 } },
+      { new: true }
+    );
+
+    await createNotification({
+      user: req.user._id,
+      type: 'unenrollment',
+      title: 'Unenrolled from course',
+      message: `You've been unenrolled from "${course?.title || 'a course'}".`,
+      link: '/courses',
     });
 
     res.status(200).json({
@@ -176,12 +219,27 @@ export const unenrollFromCourse = async (req, res, next) => {
 /**
  * @desc    Get all students enrolled in a specific course
  * @route   GET /api/enrollments/course/:courseId
- * @access  Private/Admin
+ * @access  Private/Admin/Instructor
  */
 export const getCourseEnrollments = async (req, res, next) => {
   const { courseId } = req.params;
 
   try {
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    if (req.user.role !== 'admin' && !canManageCourse(course, req.user)) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to view enrollments for this course',
+      });
+    }
+
     const enrollments = await Enrollment.find({ course: courseId })
       .populate('student', 'name email createdAt')
       .sort({ createdAt: -1 });
@@ -197,14 +255,29 @@ export const getCourseEnrollments = async (req, res, next) => {
 };
 
 /**
- * @desc    Unenroll a student from a course (Admin forced)
+ * @desc    Unenroll a student from a course (Admin/Instructor forced)
  * @route   DELETE /api/enrollments/course/:courseId/student/:studentId
- * @access  Private/Admin
+ * @access  Private/Admin/Instructor
  */
 export const removeStudentFromCourse = async (req, res, next) => {
   const { courseId, studentId } = req.params;
 
   try {
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    if (req.user.role !== 'admin' && !canManageCourse(course, req.user)) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to manage students for this course',
+      });
+    }
+
     const enrollment = await Enrollment.findOne({ course: courseId, student: studentId });
 
     if (!enrollment) {
@@ -217,8 +290,16 @@ export const removeStudentFromCourse = async (req, res, next) => {
     await Enrollment.findByIdAndDelete(enrollment._id);
 
     // Decrement the course's enrolledCount
-    await Course.findByIdAndUpdate(courseId, {
-      $inc: { enrolledCount: -1 },
+    course.enrolledCount = Math.max(0, course.enrolledCount - 1);
+    await course.save();
+
+    const actor = req.user.role === 'admin' ? 'an administrator' : `instructor "${req.user.name}"`;
+    await createNotification({
+      user: studentId,
+      type: 'unenrollment',
+      title: 'Removed from course',
+      message: `You've been removed from "${course.title}" by ${actor}.`,
+      link: '/courses',
     });
 
     res.status(200).json({
@@ -231,9 +312,9 @@ export const removeStudentFromCourse = async (req, res, next) => {
 };
 
 /**
- * @desc    Enroll a student in a course (Admin force)
+ * @desc    Enroll a student in a course (Admin/Instructor force)
  * @route   POST /api/enrollments/course/:courseId/student/:studentId
- * @access  Private/Admin
+ * @access  Private/Admin/Instructor
  */
 export const enrollStudentInCourseAdmin = async (req, res, next) => {
   const { courseId, studentId } = req.params;
@@ -245,6 +326,13 @@ export const enrollStudentInCourseAdmin = async (req, res, next) => {
       return res.status(404).json({
         status: 'fail',
         message: 'Course not found',
+      });
+    }
+
+    if (req.user.role !== 'admin' && !canManageCourse(course, req.user)) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to manage students for this course',
       });
     }
 
@@ -288,6 +376,16 @@ export const enrollStudentInCourseAdmin = async (req, res, next) => {
     course.enrolledCount += 1;
     await course.save();
 
+    // 6. Notify the student
+    const actor = req.user.role === 'admin' ? 'An administrator' : `Instructor "${req.user.name}"`;
+    await createNotification({
+      user: studentId,
+      type: 'enrollment',
+      title: 'Enrolled in a course',
+      message: `${actor} enrolled you in "${course.title}".`,
+      link: `/courses/${course._id}`,
+    });
+
     const populatedEnrollment = await enrollment.populate({
       path: 'student',
       select: 'name email createdAt',
@@ -308,6 +406,7 @@ export const enrollStudentInCourseAdmin = async (req, res, next) => {
     next(error);
   }
 };
+
 
 /**
  * @desc    Enroll multiple students in a course (Admin force bulk)
@@ -377,6 +476,17 @@ export const enrollStudentsInCourseBulkAdmin = async (req, res, next) => {
       course.enrolledCount += enrollmentsToCreate.length;
       await course.save();
       enrolledCount = enrollmentsToCreate.length;
+
+      // 5. Notify all newly enrolled students in one batch insert
+      await notifyManyUsers(
+        enrollmentsToCreate.map((e) => e.student),
+        {
+          type: 'enrollment',
+          title: 'Enrolled in a course',
+          message: `An administrator enrolled you in "${course.title}".`,
+          link: `/courses/${course._id}`,
+        }
+      );
     }
 
     res.status(201).json({
@@ -391,3 +501,22 @@ export const enrollStudentsInCourseBulkAdmin = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Get all active students
+ * @route   GET /api/enrollments/active-students
+ * @access  Private/Admin/Instructor
+ */
+export const getActiveStudents = async (req, res, next) => {
+  try {
+    const students = await User.find({ role: 'student', status: 'active' }).select('name email');
+    res.status(200).json({
+      status: 'success',
+      results: students.length,
+      data: students,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
