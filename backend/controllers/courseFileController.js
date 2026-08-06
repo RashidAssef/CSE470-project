@@ -144,6 +144,17 @@ export const uploadStudentSubmission = async (req, res, next) => {
       size: req.file.size,
     });
 
+    // Update student's course enrollment progress
+    const totalMaterials = await CourseMaterial.countDocuments({ course: courseId });
+    const studentSubmissions = await StudentSubmission.countDocuments({ course: courseId, student: req.user._id });
+    const progressPercent = totalMaterials > 0 ? Math.round((studentSubmissions / totalMaterials) * 100) : 0;
+
+    enrolled.progress = Math.min(100, progressPercent);
+    if (enrolled.progress === 100) {
+      enrolled.status = 'completed';
+    }
+    await enrolled.save();
+
     res.status(201).json({
       status: 'success',
       message: 'Submission uploaded',

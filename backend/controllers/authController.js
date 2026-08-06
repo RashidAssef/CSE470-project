@@ -159,3 +159,142 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Update current user's profile
+ * @route   PUT /api/auth/profile
+ * @access  Private
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User account not found',
+      });
+    }
+
+    const { name, email, phone, occupation, password } = req.body;
+
+    if (name) user.name = name;
+    
+    if (email) {
+      if (email.toLowerCase() !== user.email.toLowerCase()) {
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+          return res.status(400).json({
+            status: 'fail',
+            message: 'Email address already in use',
+          });
+        }
+        user.email = email;
+      }
+    }
+
+    if (phone !== undefined) user.phone = phone;
+    if (occupation !== undefined) user.occupation = occupation;
+    if (password) user.password = password; // Hashing is handled by userSchema.pre('save')
+
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        phone: user.phone || '',
+        occupation: user.occupation || '',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get all bookmarked courses in wishlist
+ * @route   GET /api/auth/wishlist
+ * @access  Private
+ */
+export const getWishlist = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: 'wishlist',
+      populate: [
+        { path: 'instructor', select: 'name' },
+        { path: 'category', select: 'name' }
+      ]
+    });
+    if (!user) {
+      return res.status(404).json({ status: 'fail', message: 'User not found' });
+    }
+    res.status(200).json({
+      status: 'success',
+      results: user.wishlist.length,
+      data: user.wishlist,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Add course to wishlist
+ * @route   POST /api/auth/wishlist/:courseId
+ * @access  Private
+ */
+export const addToWishlist = async (req, res, next) => {
+  const { courseId } = req.params;
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ status: 'fail', message: 'User not found' });
+    }
+
+    if (user.wishlist.includes(courseId)) {
+      return res.status(400).json({ status: 'fail', message: 'Course is already in your wishlist' });
+    }
+
+    user.wishlist.push(courseId);
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Course added to wishlist successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Remove course from wishlist
+ * @route   DELETE /api/auth/wishlist/:courseId
+ * @access  Private
+ */
+export const removeFromWishlist = async (req, res, next) => {
+  const { courseId } = req.params;
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ status: 'fail', message: 'User not found' });
+    }
+
+    user.wishlist = user.wishlist.filter(id => id.toString() !== courseId.toString());
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Course removed from wishlist successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+

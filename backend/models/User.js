@@ -38,6 +38,20 @@ const userSchema = new mongoose.Schema(
       enum: ['pending', 'active', 'suspended'],
       // We will dynamically assign this on document creation based on the role
     },
+    phone: {
+      type: String,
+      default: '',
+    },
+    occupation: {
+      type: String,
+      default: '',
+    },
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Course',
+      }
+    ],
   },
   {
     timestamps: true, // Automatically creates createdAt and updatedAt fields

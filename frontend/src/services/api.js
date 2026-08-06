@@ -127,6 +127,54 @@ export const authService = {
       authService.logout();
       throw error;
     }
+  },
+
+  /**
+   * Update profile details
+   * @param {Object} profileData
+   */
+  updateProfile: async (profileData) => {
+    const res = await apiFetch('/auth/profile', {
+      method: 'PUT',
+      body: profileData,
+    });
+    if (res.data) {
+      const current = authService.getCurrentUser();
+      localStorage.setItem('user', JSON.stringify({
+        ...current,
+        name: res.data.name,
+        email: res.data.email,
+        phone: res.data.phone,
+        occupation: res.data.occupation,
+      }));
+    }
+    return res.data;
+  },
+
+  /**
+   * Get all bookmarked courses in wishlist
+   */
+  getWishlist: async () => {
+    const res = await apiFetch('/auth/wishlist');
+    return res.data;
+  },
+
+  /**
+   * Add course to wishlist
+   */
+  addToWishlist: async (courseId) => {
+    return await apiFetch(`/auth/wishlist/${courseId}`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Remove course from wishlist
+   */
+  removeFromWishlist: async (courseId) => {
+    return await apiFetch(`/auth/wishlist/${courseId}`, {
+      method: 'DELETE',
+    });
   }
 };
 
@@ -440,6 +488,14 @@ export const enrollmentService = {
       method: 'POST',
       body: { studentIds },
     });
+  },
+
+  /**
+   * Get all active students
+   */
+  getActiveStudents: async () => {
+    const res = await apiFetch('/enrollments/active-students');
+    return res.data;
   },
 };
 
