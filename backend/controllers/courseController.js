@@ -10,20 +10,37 @@ import { canManageCourse } from '../utils/courseAccess.js';
  */
 export const getCourses = async (req, res, next) => {
   try {
-    const { category, level, search } = req.query;
-    let query = { status: 'published' };
+    const { category, level, search, instructor } = req.query;
+    const conditions = [{ status: 'published' }];
 
     if (category) {
-      query.category = category;
+      conditions.push({ category });
     }
 
     if (level && ['beginner', 'intermediate', 'advanced'].includes(level)) {
-      query.level = level;
+      conditions.push({ level });
     }
 
-    if (search) {
-      query.title = { $regex: search, $options: 'i' };
+    if (instructor) {
+      conditions.push({
+        $or: [
+          { instructor: instructor },
+          { coInstructors: instructor }
+        ]
+      });
     }
+
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: 'i' };
+      conditions.push({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex }
+        ]
+      });
+    }
+
+    const query = conditions.length === 1 ? conditions[0] : { $and: conditions };
 
     const courses = await Course.find(query)
       .populate('category', 'name slug')

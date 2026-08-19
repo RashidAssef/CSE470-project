@@ -9,11 +9,24 @@ import {
   ListOrdered,
   FileText,
   Upload,
+  ClipboardList,
+  Clock,
+  Award,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import FilePicker from '../components/FilePicker.jsx'
-import { courseService, enrollmentService, authService, courseFileService, UPLOADS_BASE_URL } from '../services/api.js'
+import {
+  courseService,
+  enrollmentService,
+  authService,
+  courseFileService,
+  assignmentService,
+  UPLOADS_BASE_URL,
+} from '../services/api.js'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -40,39 +53,54 @@ export default function CourseDetail() {
   const [submitFile, setSubmitFile] = useState(null)
   const [submitLoading, setSubmitLoading] = useState(false)
 
-  useEffect(() => {
-    const fetchCourse = async () => {
-      setLoading(true)
-      setError('')
+  // Course Assignments State
+  const [courseAssignments, setCourseAssignments] = useState([])
+  const [activeAssignmentForSubmit, setActiveAssignmentForSubmit] = useState(null)
+  const [assignmentSubmitFile, setAssignmentSubmitFile] = useState(null)
+  const [assignmentSubmitText, setAssignmentSubmitText] = useState('')
+  const [assignmentSubmitLoading, setAssignmentSubmitLoading] = useState(false)
+
+  const fetchCourseData = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await courseService.getCourseById(id)
+      setCourse(data)
+
       try {
-        const data = await courseService.getCourseById(id)
-        setCourse(data)
+        const mats = await courseFileService.getMaterials(id)
+        setMaterials(mats)
+      } catch {
+        setMaterials([])
+      }
 
-        try {
-          const mats = await courseFileService.getMaterials(id)
-          setMaterials(mats)
-        } catch {
-          setMaterials([])
-        }
+      // Only students who are logged in can have an enrollment status
+      if (currentUser?.role === 'student') {
+        const status = await enrollmentService.getEnrollmentStatus(id)
+        setEnrolled(status.enrolled)
+        setEnrollmentId(status.enrollmentId)
+        if (status.enrolled) {
+          const subs = await courseFileService.getMySubmissions(id)
+          setMySubmissions(subs)
 
-        // Only students who are logged in can have an enrollment status
-        if (currentUser?.role === 'student') {
-          const status = await enrollmentService.getEnrollmentStatus(id)
-          setEnrolled(status.enrolled)
-          setEnrollmentId(status.enrollmentId)
-          if (status.enrolled) {
-            const subs = await courseFileService.getMySubmissions(id)
-            setMySubmissions(subs)
+          // Fetch Course Assignments for student
+          try {
+            const assList = await assignmentService.getCourseAssignments(id)
+            setCourseAssignments(assList || [])
+          } catch {
+            setCourseAssignments([])
           }
         }
-      } catch (err) {
-        setError(err.message || 'Failed to load course')
-      } finally {
-        setLoading(false)
       }
+    } catch (err) {
+      setError(err.message || 'Failed to load course')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    fetchCourse()
+  useEffect(() => {
+    fetchCourseData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -95,6 +123,14 @@ export default function CourseDetail() {
       setEnrollmentId(res.data._id)
       setCourse((prev) => ({ ...prev, enrolledCount: prev.enrolledCount + 1 }))
       setActionMessage(res.message)
+
+      // Fetch assignments after enrolling
+      try {
+        const assList = await assignmentService.getCourseAssignments(id)
+        setCourseAssignments(assList || [])
+      } catch {
+        setCourseAssignments([])
+      }
     } catch (err) {
       setActionMessage(err.message || 'Could not enroll in this course')
     } finally {
@@ -110,6 +146,7 @@ export default function CourseDetail() {
       setEnrolled(false)
       setEnrollmentId(null)
       setCourse((prev) => ({ ...prev, enrolledCount: Math.max(0, prev.enrolledCount - 1) }))
+      setCourseAssignments([])
       setActionMessage('You have unenrolled from this course.')
     } catch (err) {
       setActionMessage(err.message || 'Could not unenroll from this course')
@@ -135,6 +172,37 @@ export default function CourseDetail() {
       setActionMessage(err.message || 'Upload failed')
     } finally {
       setSubmitLoading(false)
+    }
+  }
+
+  const handleAssignmentSubmit = async (e) => {
+    e.preventDefault()
+    if (!activeAssignmentForSubmit) return
+    if (!assignmentSubmitFile && !assignmentSubmitText.trim()) {
+      setActionMessage('Please attach a file or enter submission notes.')
+      return
+    }
+
+    setAssignmentSubmitLoading(true)
+    setActionMessage('')
+    try {
+      await assignmentService.submitAssignment(
+        activeAssignmentForSubmit._id,
+        assignmentSubmitFile,
+        assignmentSubmitText.trim()
+      )
+      setActionMessage(`Assignment "${activeAssignmentForSubmit.title}" submitted successfully!`)
+      setActiveAssignmentForSubmit(null)
+      setAssignmentSubmitFile(null)
+      setAssignmentSubmitText('')
+
+      // Refresh assignments list
+      const assList = await assignmentService.getCourseAssignments(id)
+      setCourseAssignments(assList || [])
+    } catch (err) {
+      setActionMessage(err.message || 'Assignment submission failed')
+    } finally {
+      setAssignmentSubmitLoading(false)
     }
   }
 
@@ -256,11 +324,147 @@ export default function CourseDetail() {
               </section>
             )}
 
+            {/* DEDICATED COURSE ASSIGNMENTS SECTION */}
+            {enrolled && currentUser?.role === 'student' && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <ClipboardList size={20} className="text-primary" />
+                  Course Assignments
+                </h2>
+                <p className="mt-1 text-xs text-slate">
+                  Complete required assignments before the deadline to earn marks and feedback.
+                </p>
+
+                <div className="mt-6 space-y-4">
+                  {courseAssignments.length === 0 ? (
+                    <p className="text-sm text-slate">No assignments posted for this course yet.</p>
+                  ) : (
+                    courseAssignments.map((ass) => {
+                      const isPastDue = new Date() > new Date(ass.deadline)
+                      const mySub = ass.mySubmission
+                      const isGraded = mySub?.status === 'graded'
+                      const isSubmitted = Boolean(mySub)
+
+                      return (
+                        <div
+                          key={ass._id}
+                          className="rounded-2xl border border-line bg-paper-alt p-5 shadow-xs transition-all hover:border-primary/30"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-display text-base font-bold text-ink">{ass.title}</h3>
+                              {isGraded ? (
+                                <span className="rounded-full bg-teal-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-teal border border-teal-100 flex items-center gap-1">
+                                  <Award size={12} /> Graded ({mySub.marks}/{ass.maxMarks})
+                                </span>
+                              ) : isSubmitted ? (
+                                <span className="rounded-full bg-blue-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-blue-600 border border-blue-100 flex items-center gap-1">
+                                  <CheckCircle size={12} /> Submitted
+                                </span>
+                              ) : isPastDue ? (
+                                <span className="rounded-full bg-red-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-red-600 border border-red-100 flex items-center gap-1">
+                                  <AlertCircle size={12} /> Deadline Passed
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-amber-700 border border-amber-100 flex items-center gap-1">
+                                  <Clock size={12} /> Open
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-bold text-slate">Max Marks: {ass.maxMarks}</span>
+                          </div>
+
+                          <p className="mt-2 text-sm text-ink-soft whitespace-pre-line leading-relaxed">
+                            {ass.description}
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate border-t border-line pt-3">
+                            <span className="flex items-center gap-1">
+                              <Clock size={14} className="text-primary" /> Due:{' '}
+                              {new Date(ass.deadline).toLocaleString()}
+                            </span>
+                            {ass.attachment?.fileUrl && (
+                              <a
+                                href={`${UPLOADS_BASE_URL}${ass.attachment.fileUrl}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-primary hover:underline flex items-center gap-1"
+                              >
+                                <FileText size={14} /> Download Instructor Reference ({ass.attachment.originalName})
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Student Submission Status Card */}
+                          {mySub && (
+                            <div className="mt-4 rounded-xl border border-line bg-paper p-4 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-ink">Your Submission</span>
+                                <span className="text-slate">Submitted: {new Date(mySub.submittedAt).toLocaleString()}</span>
+                              </div>
+
+                              {mySub.fileUrl && (
+                                <a
+                                  href={`${UPLOADS_BASE_URL}${mySub.fileUrl}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-2 inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                                >
+                                  <FileText size={14} /> {mySub.originalName || 'View Submitted File'}
+                                </a>
+                              )}
+
+                              {mySub.submissionText && (
+                                <p className="mt-2 text-slate bg-paper-alt p-2.5 rounded-lg border border-line">
+                                  {mySub.submissionText}
+                                </p>
+                              )}
+
+                              {isGraded && (
+                                <div className="mt-3 bg-teal-50 border border-teal-100 p-3 rounded-lg text-teal-900">
+                                  <p className="font-bold text-sm">
+                                    Grade: {mySub.marks} / {ass.maxMarks}
+                                  </p>
+                                  {mySub.feedback && (
+                                    <p className="mt-1 text-xs text-teal-800">
+                                      <strong>Instructor Feedback:</strong> {mySub.feedback}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Submission Action Button */}
+                          {!isGraded && !isPastDue && (
+                            <div className="mt-4 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAssignmentForSubmit(ass)
+                                  setAssignmentSubmitFile(null)
+                                  setAssignmentSubmitText(mySub?.submissionText || '')
+                                }}
+                                className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition-colors"
+                              >
+                                {isSubmitted ? 'Resubmit Assignment Work' : 'Submit Assignment Work'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* GENERIC WORK SUBMISSION SECTION (Preserved) */}
             {enrolled && currentUser?.role === 'student' && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
                   <Upload size={20} className="text-primary" />
-                  Submit your work
+                  Submit general course work
                 </h2>
                 <form onSubmit={handleSubmitWork} className="mt-4 flex flex-col gap-3 max-w-md">
                   <input
@@ -352,6 +556,70 @@ export default function CourseDetail() {
           </aside>
         </div>
       </main>
+
+      {/* STUDENT ASSIGNMENT SUBMISSION MODAL */}
+      {activeAssignmentForSubmit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-paper-alt rounded-2xl shadow-xl border border-line overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold text-ink flex items-center gap-2">
+                <Upload size={20} className="text-primary" />
+                Submit Work for "{activeAssignmentForSubmit.title}"
+              </h2>
+              <button
+                onClick={() => setActiveAssignmentForSubmit(null)}
+                className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignmentSubmit} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1">
+                  Upload Submission File (PDF, DOCX, Image)
+                </label>
+                <FilePicker
+                  id="assignment-submission-file-picker"
+                  selectedName={assignmentSubmitFile?.name}
+                  onChange={(e) => setAssignmentSubmitFile(e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1 font-sans">
+                  Submission Notes / Comments (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Include any notes or links for the instructor..."
+                  value={assignmentSubmitText}
+                  onChange={(e) => setAssignmentSubmitText(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setActiveAssignmentForSubmit(null)}
+                  className="px-4 py-2 border border-line text-sm font-semibold rounded-xl text-ink-soft hover:bg-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignmentSubmitLoading}
+                  className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {assignmentSubmitLoading && <Loader2 size={14} className="animate-spin" />}
+                  Submit Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
