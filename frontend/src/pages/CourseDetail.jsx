@@ -9,6 +9,7 @@ import {
   ListOrdered,
   FileText,
   Upload,
+  MessageSquare,
 } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
@@ -207,6 +208,16 @@ export default function CourseDetail() {
                 {levelLabels[course.level]} level
               </span>
             </div>
+
+            {currentUser && (enrolled || currentUser.role === 'instructor' || currentUser.role === 'admin') && (
+              <Link
+                to={`/courses/${id}/forum`}
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-line bg-paper-alt px-5 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-primary hover:text-primary"
+              >
+                <MessageSquare size={16} />
+                Discussion forum
+              </Link>
+            )}
 
             {sortedModules.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
