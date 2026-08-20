@@ -1,10 +1,44 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings } from 'lucide-react';
-import { authService, courseService, courseFileService, enrollmentService, UPLOADS_BASE_URL } from '../services/api.js';
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Upload,
+  Loader2,
+  FileText,
+  Users,
+  BarChart3,
+  GraduationCap,
+  X,
+  Search,
+  UserPlus,
+  Trash,
+  ShieldAlert,
+  Settings,
+  Award,
+  Clock,
+  Edit,
+  Eye,
+  CheckCircle,
+  XCircle,
+  ToggleLeft,
+  ToggleRight,
+  Sparkles,
+} from 'lucide-react';
+import {
+  authService,
+  courseService,
+  courseFileService,
+  enrollmentService,
+  quizService,
+  UPLOADS_BASE_URL,
+} from '../services/api.js';
 import FilePicker from '../components/FilePicker.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
-
+import QuizBuilderModal from '../components/QuizBuilderModal.jsx';
+import QuizSubmissionsModal from '../components/QuizSubmissionsModal.jsx';
+import QuizResultModal from '../components/QuizResultModal.jsx';
 
 export default function InstructorCourseManage() {
   const { courseId } = useParams();
@@ -13,6 +47,7 @@ export default function InstructorCourseManage() {
   const [modules, setModules] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -20,14 +55,20 @@ export default function InstructorCourseManage() {
   const [uploading, setUploading] = useState(false);
   const [materialFile, setMaterialFile] = useState(null);
 
-  // New states for student management & analytics
-  const [activeTab, setActiveTab] = useState('path'); // 'path', 'students', 'analytics'
+  // Tab & Student management states
+  const [activeTab, setActiveTab] = useState('path'); // 'path', 'quizzes', 'students', 'analytics'
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [activeStudentsList, setActiveStudentsList] = useState([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudentToEnroll, setSelectedStudentToEnroll] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [confirmDropStudent, setConfirmDropStudent] = useState(null); // student Object if modal open
+  const [confirmDropStudent, setConfirmDropStudent] = useState(null);
+
+  // Quiz Modal States
+  const [isQuizBuilderOpen, setIsQuizBuilderOpen] = useState(false);
+  const [selectedQuizForEdit, setSelectedQuizForEdit] = useState(null);
+  const [selectedQuizForSubmissions, setSelectedQuizForSubmissions] = useState(null);
+  const [reviewAttemptId, setReviewAttemptId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -47,6 +88,10 @@ export default function InstructorCourseManage() {
       const subs = await courseFileService.getCourseSubmissions(courseId);
       setSubmissions(subs);
 
+      // Fetch Quizzes
+      const qList = await quizService.getCourseQuizzes(courseId);
+      setQuizzes(qList || []);
+
       // Fetch enrolled students and active students lists
       const students = await enrollmentService.getCourseEnrollments(courseId);
       setEnrolledStudents(students || []);
@@ -58,7 +103,6 @@ export default function InstructorCourseManage() {
       setLoading(false);
     }
   };
-
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -133,7 +177,7 @@ export default function InstructorCourseManage() {
       setSelectedStudentToEnroll('');
       const students = await enrollmentService.getCourseEnrollments(courseId);
       setEnrolledStudents(students || []);
-      
+
       if (course) {
         setCourse({ ...course, enrolledCount: (course.enrolledCount || 0) + 1 });
       }
@@ -170,6 +214,41 @@ export default function InstructorCourseManage() {
     }
   };
 
+  // Quiz Management Handlers
+  const handleTogglePublishQuiz = async (quizId) => {
+    try {
+      const updated = await quizService.togglePublishQuiz(quizId);
+      setQuizzes((prev) => prev.map((q) => (q._id === quizId ? { ...q, isPublished: updated.isPublished } : q)));
+      setMessage(`Quiz status updated: ${updated.isPublished ? 'Published to Students' : 'Saved as Draft'}`);
+    } catch (err) {
+      setError(err.message || 'Failed to toggle quiz status');
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId) => {
+    if (!window.confirm('Are you sure you want to delete this quiz and all student attempts?')) return;
+    try {
+      await quizService.deleteQuiz(quizId);
+      setQuizzes((prev) => prev.filter((q) => q._id !== quizId));
+      setMessage('Quiz deleted successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to delete quiz');
+    }
+  };
+
+  const handleOpenCreateQuiz = () => {
+    setSelectedQuizForEdit(null);
+    setIsQuizBuilderOpen(true);
+  };
+
+  const handleOpenEditQuiz = (quiz) => {
+    setSelectedQuizForEdit(quiz);
+    setIsQuizBuilderOpen(true);
+  };
+
+  const handleOpenSubmissions = (quiz) => {
+    setSelectedQuizForSubmissions(quiz);
+  };
 
   if (loading) {
     return (
@@ -213,7 +292,7 @@ export default function InstructorCourseManage() {
         </div>
       </header>
 
-      <main className="flex-1 mx-auto max-w-3xl w-full px-6 py-10">
+      <main className="flex-1 mx-auto max-w-5xl w-full px-6 py-10">
         <Link
           to="/instructor/dashboard"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-slate hover:text-primary"
@@ -221,7 +300,6 @@ export default function InstructorCourseManage() {
           <ArrowLeft size={16} />
           Instructor dashboard
         </Link>
-
 
         <div className="mt-4 flex flex-col justify-between sm:flex-row sm:items-center">
           <div>
@@ -237,10 +315,10 @@ export default function InstructorCourseManage() {
         {message && <p className="mt-4 rounded-xl border border-teal-100 bg-teal-50 p-4 text-sm text-teal">{message}</p>}
 
         {/* Tab Headers */}
-        <div className="mt-8 flex border-b border-line overflow-x-auto">
+        <div className="mt-8 flex border-b border-line overflow-x-auto no-scrollbar gap-1 sm:gap-2">
           <button
             onClick={() => setActiveTab('path')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
               activeTab === 'path'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-slate hover:text-ink'
@@ -248,6 +326,17 @@ export default function InstructorCourseManage() {
           >
             <FileText size={16} />
             Learning Path & Files
+          </button>
+          <button
+            onClick={() => setActiveTab('quizzes')}
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+              activeTab === 'quizzes'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            <Award size={16} />
+            Quizzes & Assessments ({quizzes.length})
           </button>
           <button
             onClick={() => setActiveTab('students')}
@@ -273,7 +362,7 @@ export default function InstructorCourseManage() {
           </button>
         </div>
 
-        {/* Tab Contents */}
+        {/* TAB 1: Learning Path & Materials */}
         {activeTab === 'path' && (
           <>
             <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
@@ -298,17 +387,17 @@ export default function InstructorCourseManage() {
                     </div>
                     <input
                       type="text"
+                      placeholder="Module title"
                       value={mod.title}
                       onChange={(e) => updateModule(index, 'title', e.target.value)}
-                      placeholder="Module title"
-                      className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-line bg-paper-alt px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none"
                     />
                     <textarea
+                      placeholder="Optional description"
                       value={mod.description}
                       onChange={(e) => updateModule(index, 'description', e.target.value)}
-                      placeholder="Short description (optional)"
                       rows={2}
-                      className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
+                      className="mt-2 w-full rounded-lg border border-line bg-paper-alt px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none"
                     />
                   </div>
                 ))}
@@ -318,7 +407,7 @@ export default function InstructorCourseManage() {
                 <button
                   type="button"
                   onClick={addModule}
-                  className="inline-flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-semibold"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-paper px-4 py-2 text-sm font-semibold text-ink hover:bg-paper-alt"
                 >
                   <Plus size={16} /> Add module
                 </button>
@@ -326,47 +415,48 @@ export default function InstructorCourseManage() {
                   type="button"
                   onClick={saveModules}
                   disabled={savingModules}
-                  className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
                 >
                   {savingModules ? 'Saving…' : 'Save learning path'}
                 </button>
               </div>
             </section>
 
+            {/* Course materials upload */}
             <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
-              <h2 className="font-display text-lg font-semibold">Upload materials</h2>
-              <form onSubmit={handleMaterialUpload} className="mt-4 flex flex-col gap-4">
+              <h2 className="font-display text-lg font-semibold">Course materials</h2>
+              <p className="mt-1 text-sm text-slate">Upload lecture notes, PDFs, or assignments.</p>
+
+              <form onSubmit={handleMaterialUpload} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <FilePicker
-                  id="instructor-material-file"
-                  required
+                  onFileSelected={setMaterialFile}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.zip,.png,.jpg,.jpeg"
                   disabled={uploading}
-                  selectedName={materialFile?.name}
-                  onChange={(e) => setMaterialFile(e.target.files?.[0] || null)}
                 />
                 <button
                   type="submit"
                   disabled={uploading || !materialFile}
-                  className="inline-flex w-fit items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
                 >
                   <Upload size={16} />
-                  {uploading ? 'Uploading…' : 'Upload'}
+                  {uploading ? 'Uploading…' : 'Upload file'}
                 </button>
               </form>
 
-              <ul className="mt-6 space-y-2">
+              <ul className="mt-4 divide-y divide-line">
                 {materials.length === 0 ? (
-                  <li className="text-sm text-slate">No files uploaded yet.</li>
+                  <li className="py-2 text-sm text-slate">No files uploaded yet.</li>
                 ) : (
-                  materials.map((file) => (
-                    <li key={file._id} className="flex items-center gap-2 text-sm">
-                      <FileText size={16} className="text-primary" />
+                  materials.map((m) => (
+                    <li key={m._id} className="flex items-center justify-between py-2 text-sm">
+                      <span className="font-medium text-ink">{m.originalName}</span>
                       <a
-                        href={`${UPLOADS_BASE_URL}${file.fileUrl}`}
+                        href={`${UPLOADS_BASE_URL}${m.fileUrl}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-medium text-primary hover:underline"
+                        className="text-primary hover:underline text-xs"
                       >
-                        {file.originalName}
+                        Download
                       </a>
                     </li>
                   ))
@@ -374,8 +464,11 @@ export default function InstructorCourseManage() {
               </ul>
             </section>
 
+            {/* Student assignment submissions */}
             <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
-              <h2 className="font-display text-lg font-semibold">Student submissions</h2>
+              <h2 className="font-display text-lg font-semibold">Student file submissions</h2>
+              <p className="mt-1 text-sm text-slate">Files submitted by enrolled students.</p>
+
               <ul className="mt-4 space-y-3">
                 {submissions.length === 0 ? (
                   <li className="text-sm text-slate">No submissions yet.</li>
@@ -402,6 +495,141 @@ export default function InstructorCourseManage() {
           </>
         )}
 
+        {/* TAB 2: Quizzes & Assessments */}
+        {activeTab === 'quizzes' && (
+          <section className="mt-8 space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-paper-alt border border-line rounded-2xl p-6">
+              <div>
+                <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+                  <Award size={20} className="text-primary" /> Assessments & Knowledge Checks
+                </h2>
+                <p className="mt-1 text-sm text-slate">
+                  Create interactive multiple-choice, true/false, and short-answer quizzes with auto-grading.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenCreateQuiz}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 shadow-md shadow-primary/20 transition shrink-0"
+              >
+                <Plus size={16} /> Create New Quiz
+              </button>
+            </div>
+
+            {/* Quiz List */}
+            {quizzes.length === 0 ? (
+              <div className="text-center py-16 bg-paper-alt border border-line rounded-2xl p-6 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold mx-auto">
+                  <Sparkles size={24} />
+                </div>
+                <h3 className="font-display text-base font-bold">No quizzes created yet</h3>
+                <p className="text-xs text-slate max-w-sm mx-auto">
+                  Boost student engagement and test comprehension by creating your first course quiz.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateQuiz}
+                  className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-primary text-white rounded-xl"
+                >
+                  <Plus size={14} /> Create Assessment
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {quizzes.map((quiz) => {
+                  const isPublished = quiz.isPublished;
+                  return (
+                    <div
+                      key={quiz._id}
+                      className="bg-paper-alt border border-line rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:border-primary/40 transition"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${
+                              isPublished
+                                ? 'bg-teal-100 text-teal dark:bg-teal-950/50'
+                                : 'bg-slate-100 text-slate dark:bg-slate-800'
+                            }`}
+                          >
+                            {isPublished ? <CheckCircle size={12} /> : <Clock size={12} />}
+                            {isPublished ? 'Published' : 'Draft'}
+                          </span>
+
+                          {quiz.moduleOrder && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                              Module {quiz.moduleOrder}
+                            </span>
+                          )}
+
+                          <span className="text-xs text-slate font-medium">
+                            {quiz.questionCount || (quiz.questions || []).length} questions · {quiz.totalPoints || 0} pts
+                          </span>
+                        </div>
+
+                        <h3 className="font-display text-base font-bold text-ink">{quiz.title}</h3>
+
+                        {quiz.description && (
+                          <p className="text-xs text-slate line-clamp-2 max-w-xl">{quiz.description}</p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-slate pt-1 font-medium">
+                          <span>Passing Mark: <strong>{quiz.passingScore}%</strong></span>
+                          <span>Time Limit: <strong>{quiz.timeLimit > 0 ? `${quiz.timeLimit} mins` : 'Untimed'}</strong></span>
+                          <span>Max Attempts: <strong>{quiz.maxAttempts > 0 ? quiz.maxAttempts : 'Unlimited'}</strong></span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center flex-wrap gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-line w-full md:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePublishQuiz(quiz._id)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
+                            isPublished
+                              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : 'border-teal-200 bg-teal-50 text-teal hover:bg-teal-100'
+                          }`}
+                        >
+                          {isPublished ? 'Unpublish' : 'Publish'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSubmissions(quiz)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-paper border border-line text-ink-soft hover:bg-paper-alt transition"
+                        >
+                          <Users size={14} />
+                          <span>Results</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditQuiz(quiz)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-paper border border-line text-ink-soft hover:text-primary transition"
+                        >
+                          <Edit size={14} />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteQuiz(quiz._id)}
+                          className="p-1.5 rounded-xl text-slate hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete Quiz"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 3: Enrolled Students */}
         {activeTab === 'students' && (
           <>
             {/* Enrollment form */}
@@ -410,7 +638,7 @@ export default function InstructorCourseManage() {
                 <UserPlus size={20} className="text-primary" /> Enroll a Student
               </h2>
               <p className="mt-1 text-sm text-slate">Add an active student to this course manually.</p>
-              
+
               <form onSubmit={handleEnrollStudent} className="mt-4 flex flex-col gap-4 sm:flex-row">
                 <div className="flex-1">
                   <select
@@ -452,78 +680,64 @@ export default function InstructorCourseManage() {
                   </span>
                   <input
                     type="text"
+                    placeholder="Search enrolled students…"
                     value={studentSearchQuery}
                     onChange={(e) => setStudentSearchQuery(e.target.value)}
-                    placeholder="Search students..."
-                    className="w-full rounded-xl border border-line bg-paper pl-9 pr-4 py-2 text-xs focus:border-primary focus:outline-none"
+                    className="w-full rounded-xl border border-line bg-paper pl-9 pr-4 py-2 text-xs text-ink focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-line text-xs font-bold text-slate uppercase tracking-wider">
-                      <th className="pb-3 font-semibold">Student Name</th>
-                      <th className="pb-3 font-semibold">Email</th>
-                      <th className="pb-3 font-semibold">Enrolled Date</th>
-                      <th className="pb-3 font-semibold">Submissions Progress</th>
-                      <th className="pb-3 font-semibold text-right">Actions</th>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-line bg-paper text-slate text-xs font-semibold uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Student</th>
+                      <th className="py-3 px-4">Enrollment Date</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-line text-sm text-ink-soft">
-                    {enrolledStudents
-                      .filter((e) => {
-                        const name = e.student?.name || '';
-                        const email = e.student?.email || '';
-                        return name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-                               email.toLowerCase().includes(studentSearchQuery.toLowerCase());
-                      })
-                      .map((e) => {
-                        // Count student submissions for this course
-                        const studentSubmissions = submissions.filter(
-                          (sub) => (sub.student?._id || sub.student) === (e.student?._id || e.student)
-                        ).length;
-
-                        return (
-                          <tr key={e._id} className="hover:bg-paper/30 transition-colors">
-                            <td className="py-3 font-semibold text-ink">{e.student?.name || 'N/A'}</td>
-                            <td className="py-3 text-xs">{e.student?.email || 'N/A'}</td>
-                            <td className="py-3 text-xs">
-                              {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : 'N/A'}
+                  <tbody className="divide-y divide-line">
+                    {enrolledStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="py-6 text-center text-slate text-xs">
+                          No students are currently enrolled in this course.
+                        </td>
+                      </tr>
+                    ) : (
+                      enrolledStudents
+                        .filter((e) => {
+                          const name = e.student?.name || '';
+                          const email = e.student?.email || '';
+                          const q = studentSearchQuery.toLowerCase();
+                          return name.toLowerCase().includes(q) || email.toLowerCase().includes(q);
+                        })
+                        .map((enrol) => (
+                          <tr key={enrol._id} className="hover:bg-paper/50 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <div className="font-semibold text-ink">{enrol.student?.name || 'Unknown'}</div>
+                              <div className="text-xs text-slate">{enrol.student?.email || 'N/A'}</div>
                             </td>
-                            <td className="py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-16 bg-line rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-primary rounded-full" 
-                                    style={{ 
-                                      width: `${materials.length > 0 ? Math.min(100, (studentSubmissions / materials.length) * 100) : 0}%` 
-                                    }}
-                                  />
-                                </div>
-                                <span className="text-[11px] font-mono font-medium">
-                                  {studentSubmissions}/{materials.length}
-                                </span>
-                              </div>
+                            <td className="py-3.5 px-4 text-xs text-slate">
+                              {new Date(enrol.createdAt).toLocaleDateString()}
                             </td>
-                            <td className="py-3 text-right">
+                            <td className="py-3.5 px-4">
+                              <span className="inline-block rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal">
+                                {enrol.status || 'Active'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
                               <button
-                                onClick={() => setConfirmDropStudent(e)}
-                                className="inline-flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100/50 px-2.5 py-1.5 rounded-lg border border-red-100 transition-colors"
+                                type="button"
+                                onClick={() => setConfirmDropStudent(enrol)}
+                                className="text-xs font-semibold text-red-600 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
                               >
-                                <Trash size={12} /> Drop
+                                Remove
                               </button>
                             </td>
                           </tr>
-                        );
-                      })}
-                    {enrolledStudents.length === 0 && (
-                      <tr>
-                        <td colSpan="5" className="py-8 text-center text-sm text-slate">
-                          No enrolled students found.
-                        </td>
-                      </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -532,51 +746,54 @@ export default function InstructorCourseManage() {
           </>
         )}
 
+        {/* TAB 4: Analytics */}
         {activeTab === 'analytics' && (
           <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
             <h2 className="font-display text-lg font-semibold flex items-center gap-2">
-              <BarChart3 size={20} className="text-primary" /> Performance & Engagement Stats
+              <BarChart3 size={20} className="text-primary" /> Performance & Engagement Metrics
             </h2>
-            <p className="mt-1 text-sm text-slate">Overall engagement and assessment results across all modules.</p>
+            <p className="mt-1 text-sm text-slate">
+              Comprehensive enrollment, assessment performance, and active student trends.
+            </p>
 
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Quiz Participants</span>
-                  <h3 className="text-3xl font-bold mt-1 text-ink">{Math.round((course?.enrolledCount || 0) * 0.8)} attempts</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Total Enrollment Base</span>
+                  <h3 className="text-3xl font-bold mt-1 text-ink">{course?.enrolledCount || enrolledStudents.length}</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Total unique students who completed objective-type quizzes in this course.
+                  Students who have confirmed active enrollment in this course.
                 </p>
               </div>
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Passing Rate</span>
-                  <h3 className="text-3xl font-bold mt-1 text-teal">85% passed</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Total Assessments</span>
+                  <h3 className="text-3xl font-bold mt-1 text-teal">{quizzes.length} Quizzes</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Percentage of students scoring 50% or higher in objective assessments.
+                  Active objective assessments available to enrolled students.
                 </p>
               </div>
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Avg Mark Per Quiz</span>
-                  <h3 className="text-3xl font-bold mt-1 text-primary">78 / 100</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Course Modules</span>
+                  <h3 className="text-3xl font-bold mt-1 text-primary">{modules.length} Modules</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Average grade across all student quiz evaluations.
+                  Configured learning path milestones.
                 </p>
               </div>
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Course Completion Rate</span>
-                  <h3 className="text-3xl font-bold mt-1 text-indigo-800">64% finished</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Files & Submissions</span>
+                  <h3 className="text-3xl font-bold mt-1 text-indigo-800">{submissions.length} Submissions</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Percentage of enrolled students who viewed all modules and completed submissions.
+                  Student project files and assignment uploads received.
                 </p>
               </div>
             </div>
@@ -620,8 +837,31 @@ export default function InstructorCourseManage() {
           </div>
         </div>
       )}
+
+      {/* QUIZ BUILDER MODAL */}
+      <QuizBuilderModal
+        isOpen={isQuizBuilderOpen}
+        onClose={() => setIsQuizBuilderOpen(false)}
+        courseId={courseId}
+        modules={modules}
+        existingQuiz={selectedQuizForEdit}
+        onSaved={load}
+      />
+
+      {/* QUIZ SUBMISSIONS & ANALYTICS MODAL */}
+      <QuizSubmissionsModal
+        isOpen={Boolean(selectedQuizForSubmissions)}
+        onClose={() => setSelectedQuizForSubmissions(null)}
+        quiz={selectedQuizForSubmissions}
+        onViewAttemptReview={(attemptId) => setReviewAttemptId(attemptId)}
+      />
+
+      {/* QUIZ ATTEMPT REVIEW MODAL */}
+      <QuizResultModal
+        isOpen={Boolean(reviewAttemptId)}
+        onClose={() => setReviewAttemptId(null)}
+        attemptId={reviewAttemptId}
+      />
     </div>
   );
 }
-
-

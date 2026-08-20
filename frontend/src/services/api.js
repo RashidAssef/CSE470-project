@@ -548,3 +548,113 @@ export const notificationService = {
     });
   },
 };
+
+// ==========================================
+// QUIZ & ASSESSMENT API SERVICES
+// ==========================================
+export const quizService = {
+  /**
+   * Create a new quiz for a course
+   * @param {Object} quizData
+   */
+  createQuiz: async (quizData) => {
+    const res = await apiFetch('/quizzes', {
+      method: 'POST',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Update an existing quiz
+   * @param {string} quizId
+   * @param {Object} quizData
+   */
+  updateQuiz: async (quizId, quizData) => {
+    const res = await apiFetch(`/quizzes/${quizId}`, {
+      method: 'PUT',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a quiz
+   * @param {string} quizId
+   */
+  deleteQuiz: async (quizId) => {
+    return await apiFetch(`/quizzes/${quizId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Toggle quiz publish status
+   * @param {string} quizId
+   */
+  togglePublishQuiz: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/publish`, {
+      method: 'PATCH',
+    });
+    return res.data;
+  },
+
+  /**
+   * Get all quizzes for a course (instructor gets all with answers, student gets published quizzes)
+   * @param {string} courseId
+   */
+  getCourseQuizzes: async (courseId) => {
+    const res = await apiFetch(`/quizzes/course/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Get a single quiz by ID
+   * @param {string} quizId
+   */
+  getQuizById: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}`);
+    return res.data;
+  },
+
+  /**
+   * Submit quiz answers for grading
+   * @param {string} quizId
+   * @param {Object} attemptData { answers: [...], timeSpentSeconds: number }
+   */
+  submitQuizAttempt: async (quizId, attemptData) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempt`, {
+      method: 'POST',
+      body: attemptData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Get student's previous attempts for a quiz
+   * @param {string} quizId
+   */
+  getMyQuizAttempts: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempts/mine`);
+    return res.data;
+  },
+
+  /**
+   * Get detailed attempt review (with answers and explanations)
+   * @param {string} attemptId
+   */
+  getAttemptReview: async (attemptId) => {
+    const res = await apiFetch(`/quizzes/attempts/${attemptId}/review`);
+    return res.data;
+  },
+
+  /**
+   * Get instructor submissions & analytics for a quiz
+   * @param {string} quizId
+   */
+  getQuizSubmissions: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/submissions`);
+    return res.data;
+  },
+};
+
