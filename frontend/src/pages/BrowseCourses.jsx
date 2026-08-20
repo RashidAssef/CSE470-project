@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Users, BookOpen } from 'lucide-react'
+import { Search, Users, BookOpen, X, RotateCcw } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import { courseService, adminService, authService, enrollmentService } from '../services/api.js'
@@ -15,19 +15,22 @@ export default function BrowseCourses() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
   const [categories, setCategories] = useState([])
+  const [instructors, setInstructors] = useState([])
   const [enrolledCourseIds, setEnrolledCourseIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [instructor, setInstructor] = useState('')
   const [level, setLevel] = useState('')
 
   const currentUser = authService.getCurrentUser()
 
   useEffect(() => {
-    // Categories rarely change, fetch once
+    // Categories and instructors rarely change, fetch once
     adminService.getCategories().then(setCategories).catch(() => {})
+    courseService.getActiveInstructors().then(setInstructors).catch(() => {})
 
     // Fetch enrolled course IDs if logged in as student
     if (currentUser && currentUser.role === 'student') {
@@ -45,7 +48,7 @@ export default function BrowseCourses() {
       setLoading(true)
       setError('')
       try {
-        const data = await courseService.getCourses({ search, category, level })
+        const data = await courseService.getCourses({ search, category, level, instructor })
         setCourses(data)
       } catch (err) {
         setError(err.message || 'Failed to load courses')
@@ -57,11 +60,20 @@ export default function BrowseCourses() {
     // Small debounce so typing in the search box doesn't fire a request per keystroke
     const timeout = setTimeout(fetchCourses, 300)
     return () => clearTimeout(timeout)
-  }, [search, category, level])
+  }, [search, category, level, instructor])
 
   const handleCourseClick = (courseId) => {
     navigate(`/courses/${courseId}`)
   }
+
+  const handleClearFilters = () => {
+    setSearch('')
+    setCategory('')
+    setInstructor('')
+    setLevel('')
+  }
+
+  const hasActiveFilters = Boolean(search || category || instructor || level)
 
   return (
     <div className="min-h-screen bg-paper font-body text-ink">
@@ -83,16 +95,25 @@ export default function BrowseCourses() {
         </div>
 
         {/* Filters */}
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-2 rounded-full border border-line bg-paper-alt px-4 py-2.5">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-full border border-line bg-paper-alt px-4 py-2.5">
             <Search size={16} className="text-slate" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by course title..."
+              placeholder="Search by title or description..."
               className="w-full bg-transparent text-sm text-ink placeholder:text-slate focus:outline-none"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="text-slate hover:text-ink"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <select
@@ -109,15 +130,39 @@ export default function BrowseCourses() {
           </select>
 
           <select
+            value={instructor}
+            onChange={(e) => setInstructor(e.target.value)}
+            className="rounded-full border border-line bg-paper-alt px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+          >
+            <option value="">All instructors</option>
+            {instructors.map((inst) => (
+              <option key={inst._id} value={inst._id}>
+                {inst.name}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={level}
             onChange={(e) => setLevel(e.target.value)}
             className="rounded-full border border-line bg-paper-alt px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
           >
-            <option value="">All levels</option>
+            <option value="">All difficulty levels</option>
             <option value="beginner">Beginner</option>
             <option value="intermediate">Intermediate</option>
             <option value="advanced">Advanced</option>
           </select>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-4 py-2.5 text-xs font-semibold text-slate hover:border-red-300 hover:text-red-600 transition-colors"
+            >
+              <RotateCcw size={14} />
+              Clear filters
+            </button>
+          )}
         </div>
 
         {/* Results */}
@@ -138,9 +183,21 @@ export default function BrowseCourses() {
           {!loading && !error && courses.length === 0 && (
             <div className="rounded-2xl border border-line bg-paper-alt p-12 text-center">
               <BookOpen className="mx-auto text-slate" size={32} />
-              <p className="mt-4 text-sm text-ink-soft">
-                No courses match your filters yet.
+              <p className="mt-4 text-sm font-semibold text-ink">
+                No courses found matching your search criteria.
               </p>
+              <p className="mt-1 text-xs text-slate">
+                Try adjusting your search terms or filters.
+              </p>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition-colors"
+                >
+                  <RotateCcw size={14} /> Reset all filters
+                </button>
+              )}
             </div>
           )}
 

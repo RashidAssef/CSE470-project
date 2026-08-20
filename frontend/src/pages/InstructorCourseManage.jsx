@@ -22,15 +22,15 @@ import {
   Eye,
   CheckCircle,
   XCircle,
-  ToggleLeft,
-  ToggleRight,
   Sparkles,
+  ClipboardList,
 } from 'lucide-react';
 import {
   authService,
   courseService,
   courseFileService,
   enrollmentService,
+  assignmentService,
   quizService,
   UPLOADS_BASE_URL,
 } from '../services/api.js';
@@ -48,6 +48,7 @@ export default function InstructorCourseManage() {
   const [materials, setMaterials] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -56,13 +57,30 @@ export default function InstructorCourseManage() {
   const [materialFile, setMaterialFile] = useState(null);
 
   // Tab & Student management states
-  const [activeTab, setActiveTab] = useState('path'); // 'path', 'quizzes', 'students', 'analytics'
+  const [activeTab, setActiveTab] = useState('path'); // 'path', 'assignments', 'quizzes', 'students', 'analytics'
   const [enrolledStudents, setEnrolledStudents] = useState([]);
   const [activeStudentsList, setActiveStudentsList] = useState([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudentToEnroll, setSelectedStudentToEnroll] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmDropStudent, setConfirmDropStudent] = useState(null);
+
+  // Assignment Modal & Form states
+  const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(false);
+  const [newAssignmentForm, setNewAssignmentForm] = useState({
+    title: '',
+    description: '',
+    deadline: '',
+    maxMarks: 100,
+    file: null,
+  });
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
+  const [selectedAssignmentForSubmissions, setSelectedAssignmentForSubmissions] = useState(null);
+  const [assignmentSubmissionsList, setAssignmentSubmissionsList] = useState([]);
+  const [loadingAssignmentSubmissions, setLoadingAssignmentSubmissions] = useState(false);
+  const [gradingSubmissionId, setGradingSubmissionId] = useState(null);
+  const [gradeForm, setGradeForm] = useState({ marks: '', feedback: '' });
+  const [submittingGrade, setSubmittingGrade] = useState(false);
 
   // Quiz Modal States
   const [isQuizBuilderOpen, setIsQuizBuilderOpen] = useState(false);
@@ -88,9 +106,21 @@ export default function InstructorCourseManage() {
       const subs = await courseFileService.getCourseSubmissions(courseId);
       setSubmissions(subs);
 
+      // Fetch Assignments
+      try {
+        const assignList = await assignmentService.getCourseAssignments(courseId);
+        setAssignments(assignList || []);
+      } catch {
+        setAssignments([]);
+      }
+
       // Fetch Quizzes
-      const qList = await quizService.getCourseQuizzes(courseId);
-      setQuizzes(qList || []);
+      try {
+        const qList = await quizService.getCourseQuizzes(courseId);
+        setQuizzes(qList || []);
+      } catch {
+        setQuizzes([]);
+      }
 
       // Fetch enrolled students and active students lists
       const students = await enrollmentService.getCourseEnrollments(courseId);
@@ -166,6 +196,94 @@ export default function InstructorCourseManage() {
     }
   };
 
+  // Assignment Management Handlers
+  const handleCreateAssignment = async (e) => {
+    e.preventDefault();
+    if (!newAssignmentForm.title.trim() || !newAssignmentForm.deadline) return;
+    setCreatingAssignment(true);
+    setError('');
+    setMessage('');
+    try {
+      await assignmentService.createAssignment(
+        courseId,
+        newAssignmentForm.title.trim(),
+        newAssignmentForm.description.trim(),
+        newAssignmentForm.deadline,
+        Number(newAssignmentForm.maxMarks) || 100,
+        newAssignmentForm.file
+      );
+      setNewAssignmentForm({
+        title: '',
+        description: '',
+        deadline: '',
+        maxMarks: 100,
+        file: null,
+      });
+      setIsCreateAssignmentOpen(false);
+      const list = await assignmentService.getCourseAssignments(courseId);
+      setAssignments(list || []);
+      setMessage('Assignment created successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to create assignment');
+    } finally {
+      setCreatingAssignment(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      await assignmentService.deleteAssignment(assignmentId);
+      setAssignments((prev) => prev.filter((a) => a._id !== assignmentId));
+      setMessage('Assignment deleted successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to delete assignment');
+    }
+  };
+
+  const handleOpenAssignmentSubmissions = async (assignment) => {
+    setSelectedAssignmentForSubmissions(assignment);
+    setLoadingAssignmentSubmissions(true);
+    setGradingSubmissionId(null);
+    try {
+      const subs = await assignmentService.getAssignmentSubmissions(assignment._id);
+      setAssignmentSubmissionsList(subs || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load submissions');
+    } finally {
+      setLoadingAssignmentSubmissions(false);
+    }
+  };
+
+  const handleStartGrading = (submission) => {
+    setGradingSubmissionId(submission._id);
+    setGradeForm({
+      marks: submission.marks !== undefined && submission.marks !== null ? submission.marks : '',
+      feedback: submission.feedback || '',
+    });
+  };
+
+  const handleSaveGrade = async (submissionId) => {
+    setSubmittingGrade(true);
+    try {
+      const updated = await assignmentService.gradeSubmission(
+        submissionId,
+        Number(gradeForm.marks),
+        gradeForm.feedback.trim()
+      );
+      setAssignmentSubmissionsList((prev) =>
+        prev.map((s) => (s._id === submissionId ? updated : s))
+      );
+      setGradingSubmissionId(null);
+      setMessage('Grade saved successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to save grade');
+    } finally {
+      setSubmittingGrade(false);
+    }
+  };
+
+  // Student Enrollment Handlers
   const handleEnrollStudent = async (e) => {
     e.preventDefault();
     if (!selectedStudentToEnroll) return;
@@ -218,8 +336,12 @@ export default function InstructorCourseManage() {
   const handleTogglePublishQuiz = async (quizId) => {
     try {
       const updated = await quizService.togglePublishQuiz(quizId);
-      setQuizzes((prev) => prev.map((q) => (q._id === quizId ? { ...q, isPublished: updated.isPublished } : q)));
-      setMessage(`Quiz status updated: ${updated.isPublished ? 'Published to Students' : 'Saved as Draft'}`);
+      setQuizzes((prev) =>
+        prev.map((q) => (q._id === quizId ? { ...q, isPublished: updated.isPublished } : q))
+      );
+      setMessage(
+        `Quiz status updated: ${updated.isPublished ? 'Published to Students' : 'Saved as Draft'}`
+      );
     } catch (err) {
       setError(err.message || 'Failed to toggle quiz status');
     }
@@ -328,6 +450,17 @@ export default function InstructorCourseManage() {
             Learning Path & Files
           </button>
           <button
+            onClick={() => setActiveTab('assignments')}
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+              activeTab === 'assignments'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            <ClipboardList size={16} />
+            Assignments ({assignments.length})
+          </button>
+          <button
             onClick={() => setActiveTab('quizzes')}
             className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
               activeTab === 'quizzes'
@@ -340,7 +473,7 @@ export default function InstructorCourseManage() {
           </button>
           <button
             onClick={() => setActiveTab('students')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
               activeTab === 'students'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-slate hover:text-ink'
@@ -351,7 +484,7 @@ export default function InstructorCourseManage() {
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+            className={`flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
               activeTab === 'analytics'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-slate hover:text-ink'
@@ -495,7 +628,104 @@ export default function InstructorCourseManage() {
           </>
         )}
 
-        {/* TAB 2: Quizzes & Assessments */}
+        {/* TAB 2: Assignments */}
+        {activeTab === 'assignments' && (
+          <section className="mt-8 space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-paper-alt border border-line rounded-2xl p-6">
+              <div>
+                <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+                  <ClipboardList size={20} className="text-primary" /> Course Assignments
+                </h2>
+                <p className="mt-1 text-sm text-slate">
+                  Create and manage assignments, deadlines, and grade student submissions.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateAssignmentOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 shadow-md shadow-primary/20 transition shrink-0"
+              >
+                <Plus size={16} /> Create Assignment
+              </button>
+            </div>
+
+            {/* Assignment List */}
+            {assignments.length === 0 ? (
+              <div className="text-center py-16 bg-paper-alt border border-line rounded-2xl p-6 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold mx-auto">
+                  <ClipboardList size={24} />
+                </div>
+                <h3 className="font-display text-base font-bold">No assignments created yet</h3>
+                <p className="text-xs text-slate max-w-sm mx-auto">
+                  Add an assignment to evaluate student work and set deadlines.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {assignments.map((assign) => (
+                  <div
+                    key={assign._id}
+                    className="bg-paper-alt border border-line rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-slate font-medium">
+                          Max Marks: <strong>{assign.maxMarks || 100}</strong>
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-slate font-medium">
+                          <Clock size={12} /> Due: {new Date(assign.deadline).toLocaleDateString()}{' '}
+                          {new Date(assign.deadline).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+
+                      <h3 className="font-display text-base font-bold text-ink">{assign.title}</h3>
+                      {assign.description && (
+                        <p className="text-xs text-slate line-clamp-2">{assign.description}</p>
+                      )}
+
+                      {assign.fileUrl && (
+                        <a
+                          href={`${UPLOADS_BASE_URL}${assign.fileUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block text-xs text-primary font-medium hover:underline pt-1"
+                        >
+                          📎 {assign.originalName || 'Attached Instructions/Template'}
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-line w-full md:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAssignmentSubmissions(assign)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-paper border border-line text-ink-soft hover:bg-paper-alt transition"
+                      >
+                        <Users size={14} />
+                        <span>Submissions</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAssignment(assign._id)}
+                        className="p-1.5 rounded-xl text-slate hover:text-red-600 hover:bg-red-50 transition"
+                        title="Delete Assignment"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 3: Quizzes & Assessments */}
         {activeTab === 'quizzes' && (
           <section className="mt-8 space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-paper-alt border border-line rounded-2xl p-6">
@@ -548,8 +778,8 @@ export default function InstructorCourseManage() {
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${
                               isPublished
-                                ? 'bg-teal-100 text-teal dark:bg-teal-950/50'
-                                : 'bg-slate-100 text-slate dark:bg-slate-800'
+                                ? 'bg-teal/10 text-teal'
+                                : 'bg-slate-100 text-slate'
                             }`}
                           >
                             {isPublished ? <CheckCircle size={12} /> : <Clock size={12} />}
@@ -557,7 +787,7 @@ export default function InstructorCourseManage() {
                           </span>
 
                           {quiz.moduleOrder && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary-light text-primary">
                               Module {quiz.moduleOrder}
                             </span>
                           )}
@@ -587,8 +817,8 @@ export default function InstructorCourseManage() {
                           onClick={() => handleTogglePublishQuiz(quiz._id)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
                             isPublished
-                              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                              : 'border-teal-200 bg-teal-50 text-teal hover:bg-teal-100'
+                              ? 'border-amber-200 bg-amber-50 text-amber-dark hover:bg-amber-100'
+                              : 'border-teal/30 bg-teal/10 text-teal hover:bg-teal/20'
                           }`}
                         >
                           {isPublished ? 'Unpublish' : 'Publish'}
@@ -629,7 +859,7 @@ export default function InstructorCourseManage() {
           </section>
         )}
 
-        {/* TAB 3: Enrolled Students */}
+        {/* TAB 4: Enrolled Students */}
         {activeTab === 'students' && (
           <>
             {/* Enrollment form */}
@@ -723,7 +953,7 @@ export default function InstructorCourseManage() {
                               {new Date(enrol.createdAt).toLocaleDateString()}
                             </td>
                             <td className="py-3.5 px-4">
-                              <span className="inline-block rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal">
+                              <span className="inline-block rounded-full bg-teal/10 px-2.5 py-0.5 text-[11px] font-bold text-teal">
                                 {enrol.status || 'Active'}
                               </span>
                             </td>
@@ -746,7 +976,7 @@ export default function InstructorCourseManage() {
           </>
         )}
 
-        {/* TAB 4: Analytics */}
+        {/* TAB 5: Analytics */}
         {activeTab === 'analytics' && (
           <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
             <h2 className="font-display text-lg font-semibold flex items-center gap-2">
@@ -769,7 +999,7 @@ export default function InstructorCourseManage() {
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Total Assessments</span>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Total Quizzes</span>
                   <h3 className="text-3xl font-bold mt-1 text-teal">{quizzes.length} Quizzes</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
@@ -779,27 +1009,287 @@ export default function InstructorCourseManage() {
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Course Modules</span>
-                  <h3 className="text-3xl font-bold mt-1 text-primary">{modules.length} Modules</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Assignments</span>
+                  <h3 className="text-3xl font-bold mt-1 text-primary">{assignments.length} Assignments</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Configured learning path milestones.
+                  Graded projects and subjective assignments.
                 </p>
               </div>
 
               <div className="border border-line bg-paper p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Files & Submissions</span>
-                  <h3 className="text-3xl font-bold mt-1 text-indigo-800">{submissions.length} Submissions</h3>
+                  <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Course Modules</span>
+                  <h3 className="text-3xl font-bold mt-1 text-ink-soft">{modules.length} Modules</h3>
                 </div>
                 <p className="text-[11px] text-slate mt-3 leading-relaxed">
-                  Student project files and assignment uploads received.
+                  Configured learning path milestones.
                 </p>
               </div>
             </div>
           </section>
         )}
       </main>
+
+      {/* CREATE ASSIGNMENT MODAL */}
+      {isCreateAssignmentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-lg bg-paper-alt rounded-2xl shadow-xl border border-line p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-bold text-ink flex items-center gap-2">
+                <ClipboardList size={20} className="text-primary" /> Create New Assignment
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsCreateAssignmentOpen(false)}
+                className="text-slate hover:text-ink"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAssignment} className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate block mb-1">
+                  Assignment Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Final Project Phase 1"
+                  value={newAssignmentForm.title}
+                  onChange={(e) => setNewAssignmentForm({ ...newAssignmentForm, title: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-sm text-ink"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate block mb-1">Instructions / Description</label>
+                <textarea
+                  rows={3}
+                  placeholder="Provide details about what students need to complete..."
+                  value={newAssignmentForm.description}
+                  onChange={(e) => setNewAssignmentForm({ ...newAssignmentForm, description: e.target.value })}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-sm text-ink"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate block mb-1">
+                    Deadline <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newAssignmentForm.deadline}
+                    onChange={(e) => setNewAssignmentForm({ ...newAssignmentForm, deadline: e.target.value })}
+                    className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate block mb-1">Max Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newAssignmentForm.maxMarks}
+                    onChange={(e) => setNewAssignmentForm({ ...newAssignmentForm, maxMarks: e.target.value })}
+                    className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate block mb-1">
+                  Attach Problem Sheet / Reference File (Optional)
+                </label>
+                <FilePicker onFileSelected={(file) => setNewAssignmentForm({ ...newAssignmentForm, file })} />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateAssignmentOpen(false)}
+                  className="px-4 py-2 border border-line text-sm font-semibold rounded-xl text-ink-soft hover:bg-paper"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingAssignment}
+                  className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {creatingAssignment && <Loader2 size={14} className="animate-spin" />}
+                  Create Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ASSIGNMENT SUBMISSIONS & GRADING MODAL */}
+      {selectedAssignmentForSubmissions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-3xl bg-paper-alt rounded-2xl shadow-xl border border-line p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-line pb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-ink">
+                  {selectedAssignmentForSubmissions.title} — Submissions
+                </h3>
+                <p className="text-xs text-slate">
+                  Max Marks: {selectedAssignmentForSubmissions.maxMarks} · Due:{' '}
+                  {new Date(selectedAssignmentForSubmissions.deadline).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAssignmentForSubmissions(null)}
+                className="text-slate hover:text-ink p-1 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-4">
+              {loadingAssignmentSubmissions ? (
+                <div className="py-12 flex justify-center text-primary">
+                  <Loader2 size={24} className="animate-spin" />
+                </div>
+              ) : assignmentSubmissionsList.length === 0 ? (
+                <p className="py-12 text-center text-xs text-slate">No student submissions received yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {assignmentSubmissionsList.map((sub) => {
+                    const isEditingGrade = gradingSubmissionId === sub._id;
+                    const isGraded = sub.marks !== undefined && sub.marks !== null;
+                    return (
+                      <div key={sub._id} className="p-4 rounded-xl border border-line bg-paper">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-sm text-ink">{sub.student?.name || 'Student'}</p>
+                            <p className="text-xs text-slate">{sub.student?.email || 'N/A'}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                                isGraded
+                                  ? 'bg-teal/10 text-teal border border-teal/20'
+                                  : 'bg-amber/10 text-amber-dark border border-amber/20'
+                              }`}
+                            >
+                              {isGraded ? `Graded (${sub.marks}/${selectedAssignmentForSubmissions.maxMarks})` : 'Submitted'}
+                            </span>
+                            <span className="text-xs text-slate">
+                              {new Date(sub.submittedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* File / Text link */}
+                        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+                          {sub.fileUrl && (
+                            <a
+                              href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-primary hover:underline flex items-center gap-1"
+                            >
+                              <FileText size={14} /> Download Submitted File ({sub.originalName})
+                            </a>
+                          )}
+                          {sub.submissionText && (
+                            <div className="w-full text-xs text-ink-soft bg-paper-alt p-3 rounded-lg border border-line">
+                              <strong>Student Notes:</strong> {sub.submissionText}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Existing Feedback */}
+                        {isGraded && !isEditingGrade && (
+                          <div className="mt-3 text-xs bg-teal/5 border border-teal/20 p-3 rounded-lg">
+                            <p className="font-semibold text-teal">
+                              Grade: {sub.marks} / {selectedAssignmentForSubmissions.maxMarks}
+                            </p>
+                            {sub.feedback && <p className="text-ink-soft mt-1">Feedback: {sub.feedback}</p>}
+                          </div>
+                        )}
+
+                        {/* Grade Form */}
+                        {isEditingGrade ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleSaveGrade(sub._id);
+                            }}
+                            className="mt-4 pt-3 border-t border-line flex flex-col gap-3"
+                          >
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <label className="text-[11px] font-bold text-slate block mb-1">
+                                  Marks (0 - {selectedAssignmentForSubmissions.maxMarks})
+                                </label>
+                                <input
+                                  type="number"
+                                  required
+                                  min={0}
+                                  max={selectedAssignmentForSubmissions.maxMarks}
+                                  value={gradeForm.marks}
+                                  onChange={(e) => setGradeForm({ ...gradeForm, marks: e.target.value })}
+                                  className="w-full rounded-lg border border-line bg-paper-alt px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
+                                />
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className="text-[11px] font-bold text-slate block mb-1">
+                                  Instructor Feedback (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Great effort! Clear structure."
+                                  value={gradeForm.feedback}
+                                  onChange={(e) => setGradeForm({ ...gradeForm, feedback: e.target.value })}
+                                  className="w-full rounded-lg border border-line bg-paper-alt px-3 py-1.5 text-xs text-ink focus:border-primary focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setGradingSubmissionId(null)}
+                                className="px-3 py-1 text-xs font-semibold text-slate hover:text-ink"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={submittingGrade}
+                                className="px-4 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-dark disabled:opacity-60 flex items-center gap-1"
+                              >
+                                {submittingGrade && <Loader2 size={12} className="animate-spin" />}
+                                Save Grade
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleStartGrading(sub)}
+                              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Award size={14} /> {isGraded ? 'Update Grade' : 'Grade Submission'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DROP CONFIRMATION MODAL */}
       {confirmDropStudent && (
@@ -811,9 +1301,10 @@ export default function InstructorCourseManage() {
               </span>
               <h3 className="font-display text-lg font-bold">Unenroll Student?</h3>
             </div>
-            
+
             <p className="text-sm text-ink-soft leading-relaxed">
-              Are you sure you want to drop <strong>{confirmDropStudent.student?.name}</strong> ({confirmDropStudent.student?.email}) from the course? This action will remove all progress and access.
+              Are you sure you want to drop <strong>{confirmDropStudent.student?.name}</strong> (
+              {confirmDropStudent.student?.email}) from the course? This action will remove all progress and access.
             </p>
 
             <div className="flex justify-end gap-3 mt-2">

@@ -33,7 +33,7 @@ const handleUpload = (handler) => (req, res, next) => {
 // COURSE BROWSING ROUTES (Public)
 // ==========================================
 router.get('/', getCourses);
-router.get('/instructors/active', protect, getActiveInstructors);
+router.get('/instructors/active', getActiveInstructors);
 router.get('/instructor/my', protect, authorize('instructor'), getInstructorCourses);
 
 // Learning path modules & file uploads (before /:id)

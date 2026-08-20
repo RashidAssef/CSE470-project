@@ -10,7 +10,8 @@ import mongoose from 'mongoose';
  */
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/learning-platform';
+    const conn = await mongoose.connect(mongoURI);
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error(`[Database] Connection Error: ${error.message}`);

@@ -1,7 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { LogOut, GraduationCap, BookOpen, Compass, Loader2, Bell, Settings, Award, Bookmark, Trash, ShieldCheck, User, CheckCircle, AlertCircle, FileText, Calendar, X } from 'lucide-react'
-import { authService, enrollmentService } from '../services/api.js'
+import {
+  LogOut,
+  GraduationCap,
+  BookOpen,
+  Compass,
+  Loader2,
+  Bell,
+  Settings,
+  Award,
+  Bookmark,
+  Trash,
+  ShieldCheck,
+  User,
+  CheckCircle,
+  AlertCircle,
+  FileText,
+  Calendar,
+  X,
+  ClipboardList,
+  Clock,
+} from 'lucide-react'
+import { authService, enrollmentService, assignmentService, UPLOADS_BASE_URL } from '../services/api.js'
 import NotificationBell from '../components/NotificationBell.jsx'
 
 export default function StudentDashboard() {
@@ -9,9 +29,10 @@ export default function StudentDashboard() {
   const [user, setUser] = useState(null)
   const [enrollments, setEnrollments] = useState([])
   const [wishlist, setWishlist] = useState([])
+  const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState('courses') // 'courses', 'wishlist', 'certificates', 'announcements'
+  const [activeTab, setActiveTab] = useState('courses') // 'courses', 'assignments', 'wishlist', 'certificates', 'announcements'
 
   // Profile Modal State
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
@@ -41,6 +62,9 @@ export default function StudentDashboard() {
 
       const wishList = await authService.getWishlist()
       setWishlist(wishList || [])
+
+      const assList = await assignmentService.getMyAssignmentsOverview()
+      setAssignments(assList || [])
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data')
     } finally {
@@ -176,7 +200,7 @@ export default function StudentDashboard() {
               My Workspace
             </h1>
             <p className="mt-1 text-sm text-slate">
-              Track course progress, download digital certificates, and manage bookmarks.
+              Track course progress, view assignments, download digital certificates, and manage bookmarks.
             </p>
           </div>
           <Link
@@ -200,6 +224,17 @@ export default function StudentDashboard() {
           >
             <BookOpen size={16} />
             My Courses ({enrollments.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('assignments')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+              activeTab === 'assignments'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            <ClipboardList size={16} />
+            My Assignments ({assignments.length})
           </button>
           <button
             onClick={() => setActiveTab('wishlist')}
@@ -342,7 +377,94 @@ export default function StudentDashboard() {
             </>
           )}
 
-          {/* TAB 2: Bookmarks/Wishlist */}
+          {/* TAB 2: Assignments */}
+          {!loading && !error && activeTab === 'assignments' && (
+            <>
+              {assignments.length === 0 ? (
+                <div className="rounded-2xl border border-line bg-paper-alt p-12 text-center">
+                  <ClipboardList className="mx-auto text-slate" size={32} />
+                  <p className="mt-4 text-sm text-ink-soft">
+                    No active assignments found for your enrolled courses.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2">
+                  {assignments.map((ass) => {
+                    const isPastDue = new Date() > new Date(ass.deadline)
+                    const mySub = ass.mySubmission
+                    const isGraded = mySub?.status === 'graded'
+                    const isSubmitted = Boolean(mySub)
+
+                    return (
+                      <div
+                        key={ass._id}
+                        className="flex flex-col rounded-2xl border border-line bg-paper-alt p-6 justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="w-fit rounded-full bg-paper px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate border border-line">
+                              {ass.course?.title || 'Enrolled Course'}
+                            </span>
+                            {isGraded ? (
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-teal bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100 uppercase">
+                                <Award size={12} /> Graded ({mySub.marks}/{ass.maxMarks})
+                              </span>
+                            ) : isSubmitted ? (
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 uppercase">
+                                <CheckCircle size={12} /> Submitted
+                              </span>
+                            ) : isPastDue ? (
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 uppercase">
+                                <AlertCircle size={12} /> Past Due
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 uppercase">
+                                <Clock size={12} /> Open
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="mt-4 font-display text-lg font-semibold text-ink line-clamp-1">
+                            {ass.title}
+                          </h3>
+                          <p className="mt-2 text-xs text-slate">
+                            Max Marks: {ass.maxMarks} · Due: {new Date(ass.deadline).toLocaleString()}
+                          </p>
+                          <p className="mt-3 text-xs text-ink-soft line-clamp-2 leading-relaxed">
+                            {ass.description}
+                          </p>
+
+                          {isGraded && (
+                            <div className="mt-3 bg-teal-50 border border-teal-100 p-3 rounded-xl text-xs text-teal-900">
+                              <p className="font-bold">
+                                Grade: {mySub.marks} / {ass.maxMarks}
+                              </p>
+                              {mySub.feedback && (
+                                <p className="mt-1 text-[11px] text-teal-800">
+                                  Feedback: {mySub.feedback}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-6 border-t border-line pt-4 flex items-center justify-between">
+                          <Link
+                            to={`/courses/${ass.course?._id || ass.course}`}
+                            className="text-xs font-semibold text-primary hover:underline"
+                          >
+                            View course assignment →
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* TAB 3: Bookmarks/Wishlist */}
           {!loading && !error && activeTab === 'wishlist' && (
             <>
               {wishlist.length === 0 ? (
@@ -401,7 +523,7 @@ export default function StudentDashboard() {
             </>
           )}
 
-          {/* TAB 3: Certificates */}
+          {/* TAB 4: Certificates */}
           {!loading && !error && activeTab === 'certificates' && (
             <>
               {completedEnrollments.length === 0 ? (
@@ -462,7 +584,7 @@ export default function StudentDashboard() {
             </>
           )}
 
-          {/* TAB 4: Announcements */}
+          {/* TAB 5: Announcements */}
           {!loading && !error && activeTab === 'announcements' && (
             <div className="flex flex-col gap-4">
               <div className="rounded-2xl border border-line bg-paper-alt p-6 flex gap-4 items-start">
@@ -509,7 +631,7 @@ export default function StudentDashboard() {
                 <User size={20} className="text-primary" />
                 Profile Settings
               </h2>
-              <button 
+              <button
                 onClick={() => setIsProfileModalOpen(false)}
                 className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
               >

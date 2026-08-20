@@ -281,6 +281,7 @@ export const courseService = {
     if (filters.category) queryParams.append('category', filters.category);
     if (filters.level) queryParams.append('level', filters.level);
     if (filters.search) queryParams.append('search', filters.search);
+    if (filters.instructor) queryParams.append('instructor', filters.instructor);
 
     const queryString = queryParams.toString();
     const endpoint = `/courses${queryString ? `?${queryString}` : ''}`;
@@ -550,6 +551,107 @@ export const notificationService = {
 };
 
 // ==========================================
+// ASSIGNMENT API SERVICES
+// ==========================================
+export const assignmentService = {
+  createAssignment: async (courseId, title, description, deadline, maxMarks, file = null) => {
+    if (file) {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('deadline', deadline);
+      formData.append('maxMarks', String(maxMarks));
+      formData.append('file', file);
+      const res = await uploadFetch(`/assignments/course/${courseId}`, formData);
+      return res.data;
+    } else {
+      const res = await apiFetch(`/assignments/course/${courseId}`, {
+        method: 'POST',
+        body: { title, description, deadline, maxMarks },
+      });
+      return res.data;
+    }
+  },
+
+  getCourseAssignments: async (courseId) => {
+    const res = await apiFetch(`/assignments/course/${courseId}`);
+    return res.data;
+  },
+
+  getAssignmentById: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}`);
+    return res.data;
+  },
+
+  updateAssignment: async (assignmentId, title, description, deadline, maxMarks, file = null) => {
+    if (file) {
+      const formData = new FormData();
+      if (title) formData.append('title', title);
+      if (description) formData.append('description', description);
+      if (deadline) formData.append('deadline', deadline);
+      if (maxMarks) formData.append('maxMarks', String(maxMarks));
+      formData.append('file', file);
+
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
+        method: 'PUT',
+        headers,
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Update failed');
+      return data.data;
+    } else {
+      const res = await apiFetch(`/assignments/${assignmentId}`, {
+        method: 'PUT',
+        body: { title, description, deadline, maxMarks },
+      });
+      return res.data;
+    }
+  },
+
+  deleteAssignment: async (assignmentId) => {
+    return await apiFetch(`/assignments/${assignmentId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  submitAssignment: async (assignmentId, file = null, submissionText = '') => {
+    const formData = new FormData();
+    if (file) formData.append('file', file);
+    if (submissionText) formData.append('submissionText', submissionText);
+    const res = await uploadFetch(`/assignments/${assignmentId}/submit`, formData);
+    return res.data;
+  },
+
+  getAssignmentSubmissions: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/submissions`);
+    return res.data;
+  },
+
+  getMySubmission: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/my-submission`);
+    return res.data;
+  },
+
+  gradeSubmission: async (submissionId, marks, feedback) => {
+    const res = await apiFetch(`/assignments/submissions/${submissionId}/grade`, {
+      method: 'PATCH',
+      body: { marks, feedback },
+    });
+    return res.data;
+  },
+
+  getMyAssignmentsOverview: async () => {
+    const res = await apiFetch('/assignments/student/my');
+    return res.data;
+  },
+};
+
+// ==========================================
 // QUIZ & ASSESSMENT API SERVICES
 // ==========================================
 export const quizService = {
@@ -657,4 +759,3 @@ export const quizService = {
     return res.data;
   },
 };
-

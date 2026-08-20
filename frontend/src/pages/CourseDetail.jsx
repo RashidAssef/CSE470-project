@@ -17,6 +17,10 @@ import {
   Eye,
   RotateCcw,
   Sparkles,
+  ClipboardList,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
@@ -28,6 +32,7 @@ import {
   enrollmentService,
   authService,
   courseFileService,
+  assignmentService,
   quizService,
   UPLOADS_BASE_URL,
 } from '../services/api.js';
@@ -57,6 +62,14 @@ export default function CourseDetail() {
   const [submitFile, setSubmitFile] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  // Assignments state
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState({});
+  const [activeAssignmentForSubmit, setActiveAssignmentForSubmit] = useState(null);
+  const [assignmentSubmitFile, setAssignmentSubmitFile] = useState(null);
+  const [assignmentSubmitText, setAssignmentSubmitText] = useState('');
+  const [assignmentSubmitLoading, setAssignmentSubmitLoading] = useState(false);
+
   // Quizzes state
   const [quizzes, setQuizzes] = useState([]);
   const [activeQuizForTaking, setActiveQuizForTaking] = useState(null);
@@ -76,6 +89,14 @@ export default function CourseDetail() {
         setMaterials([]);
       }
 
+      // Fetch Assignments
+      try {
+        const assigns = await assignmentService.getCourseAssignments(id);
+        setAssignments(assigns || []);
+      } catch {
+        setAssignments([]);
+      }
+
       // Fetch Quizzes for this course
       try {
         const qList = await quizService.getCourseQuizzes(id);
@@ -92,6 +113,23 @@ export default function CourseDetail() {
         if (status.enrolled) {
           const subs = await courseFileService.getMySubmissions(id);
           setMySubmissions(subs);
+
+          // Fetch student submissions for assignments
+          try {
+            const assignList = await assignmentService.getCourseAssignments(id);
+            const subMap = {};
+            for (const a of assignList || []) {
+              try {
+                const mySub = await assignmentService.getMySubmission(a._id);
+                if (mySub) subMap[a._id] = mySub;
+              } catch {
+                // Ignore if not submitted yet
+              }
+            }
+            setAssignmentSubmissions(subMap);
+          } catch {
+            // Ignore
+          }
         }
       }
     } catch (err) {
@@ -125,7 +163,7 @@ export default function CourseDetail() {
       setEnrollmentId(res.data._id);
       setCourse((prev) => ({ ...prev, enrolledCount: prev.enrolledCount + 1 }));
       setActionMessage(res.message);
-      // Reload quizzes to get student attempt status
+      // Reload quizzes & assignments to get student attempt status
       const qList = await quizService.getCourseQuizzes(id);
       setQuizzes(qList || []);
     } catch (err) {
@@ -171,6 +209,32 @@ export default function CourseDetail() {
     }
   };
 
+  const handleAssignmentSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeAssignmentForSubmit) return;
+    if (!assignmentSubmitFile && !assignmentSubmitText.trim()) {
+      alert('Please upload a file or enter submission notes.');
+      return;
+    }
+    setAssignmentSubmitLoading(true);
+    try {
+      const res = await assignmentService.submitAssignment(
+        activeAssignmentForSubmit._id,
+        assignmentSubmitFile,
+        assignmentSubmitText.trim()
+      );
+      setAssignmentSubmissions((prev) => ({ ...prev, [activeAssignmentForSubmit._id]: res }));
+      setActiveAssignmentForSubmit(null);
+      setAssignmentSubmitFile(null);
+      setAssignmentSubmitText('');
+      setActionMessage('Assignment submitted successfully!');
+    } catch (err) {
+      alert(err.message || 'Failed to submit assignment');
+    } finally {
+      setAssignmentSubmitLoading(false);
+    }
+  };
+
   const handleStartQuiz = (quizId) => {
     if (!currentUser) {
       navigate('/login');
@@ -184,7 +248,6 @@ export default function CourseDetail() {
   };
 
   const handleQuizCompleted = async (result) => {
-    // Refresh quizzes list
     const qList = await quizService.getCourseQuizzes(id);
     setQuizzes(qList || []);
 
@@ -263,7 +326,11 @@ export default function CourseDetail() {
               </span>
               <span className="flex items-center gap-2">
                 <Award size={16} />
-                {quizzes.length} Assessment{quizzes.length === 1 ? '' : 's'}
+                {quizzes.length} Quiz{quizzes.length === 1 ? '' : 'zes'}
+              </span>
+              <span className="flex items-center gap-2">
+                <ClipboardList size={16} />
+                {assignments.length} Assignment{assignments.length === 1 ? '' : 's'}
               </span>
             </div>
 
@@ -276,7 +343,6 @@ export default function CourseDetail() {
                 </h2>
                 <ol className="mt-4 space-y-4">
                   {sortedModules.map((mod) => {
-                    // Match any quizzes linked specifically to this module
                     const moduleQuizzes = quizzes.filter((q) => q.moduleOrder === mod.order);
 
                     return (
@@ -289,7 +355,7 @@ export default function CourseDetail() {
                             Module {mod.order}
                           </p>
                           {moduleQuizzes.length > 0 && (
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary-light text-primary">
                               {moduleQuizzes.length} Quiz Linked
                             </span>
                           )}
@@ -306,7 +372,7 @@ export default function CourseDetail() {
               </section>
             )}
 
-            {/* SECTION 2: Quizzes & Assessments */}
+            {/* SECTION 2: Quizzes & Knowledge Checks */}
             {quizzes.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
                 <div className="flex items-center justify-between">
@@ -335,7 +401,7 @@ export default function CourseDetail() {
                         <div className="space-y-2 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             {quiz.moduleOrder && (
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary-light text-primary border border-primary/20">
                                 Module {quiz.moduleOrder}
                               </span>
                             )}
@@ -362,8 +428,8 @@ export default function CourseDetail() {
                                   <span
                                     className={`inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-full ${
                                       hasPassed
-                                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                                        : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                                        ? 'bg-teal/10 text-teal'
+                                        : 'bg-amber/10 text-amber-dark'
                                     }`}
                                   >
                                     {hasPassed ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
@@ -402,7 +468,7 @@ export default function CourseDetail() {
                                 className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition shadow-sm ${
                                   hasAttemptsLeft
                                     ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20'
-                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                    : 'bg-slate/20 text-slate cursor-not-allowed'
                                 }`}
                               >
                                 {attemptsMade > 0 ? (
@@ -435,7 +501,110 @@ export default function CourseDetail() {
               </section>
             )}
 
-            {/* SECTION 3: Learning Materials */}
+            {/* SECTION 3: Course Assignments */}
+            {assignments.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <ClipboardList size={20} className="text-primary" />
+                  Course Assignments ({assignments.length})
+                </h2>
+                <p className="mt-1 text-sm text-slate">
+                  Complete and submit assignments to get instructor feedback and marks.
+                </p>
+
+                <div className="mt-4 space-y-4">
+                  {assignments.map((assign) => {
+                    const mySub = assignmentSubmissions[assign._id];
+                    const isSubmitted = Boolean(mySub);
+                    const isGraded = mySub && mySub.marks !== undefined && mySub.marks !== null;
+
+                    return (
+                      <div
+                        key={assign._id}
+                        className="rounded-2xl border border-line bg-paper-alt p-5 flex flex-col gap-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-display text-base font-bold text-ink">{assign.title}</h3>
+                              {isGraded ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal/10 text-teal border border-teal/20">
+                                  <CheckCircle size={12} /> Graded: {mySub.marks}/{assign.maxMarks}
+                                </span>
+                              ) : isSubmitted ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber/10 text-amber-dark border border-amber/20">
+                                  <Clock size={12} /> Submitted (Awaiting Grade)
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-slate mt-1">
+                              Max Marks: {assign.maxMarks} · Due:{' '}
+                              {new Date(assign.deadline).toLocaleString([], {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {assign.description && (
+                          <p className="text-xs text-ink-soft leading-relaxed whitespace-pre-line">
+                            {assign.description}
+                          </p>
+                        )}
+
+                        {assign.fileUrl && (
+                          <div>
+                            <a
+                              href={`${UPLOADS_BASE_URL}${assign.fileUrl}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                              <FileText size={14} /> Download Instructions ({assign.originalName})
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Submission status for enrolled students */}
+                        {enrolled && currentUser?.role === 'student' && (
+                          <div className="pt-3 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="text-xs text-slate">
+                              {isSubmitted ? (
+                                <span>
+                                  Submitted on {new Date(mySub.submittedAt).toLocaleString()}
+                                  {mySub.feedback && (
+                                    <span className="block text-teal mt-0.5 font-medium">
+                                      Instructor Feedback: {mySub.feedback}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-amber-dark font-medium">Not submitted yet</span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveAssignmentForSubmit(assign);
+                                setAssignmentSubmitFile(null);
+                                setAssignmentSubmitText(mySub?.submissionText || '');
+                              }}
+                              className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition-colors shrink-0"
+                            >
+                              {isSubmitted ? 'Resubmit Assignment' : 'Submit Assignment'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION 4: Learning Materials */}
             {materials.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
@@ -459,12 +628,12 @@ export default function CourseDetail() {
               </section>
             )}
 
-            {/* SECTION 4: Student File Submission */}
+            {/* SECTION 5: Student File Submission (General) */}
             {enrolled && currentUser?.role === 'student' && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
                   <Upload size={20} className="text-primary" />
-                  Submit your work
+                  Submit general course work
                 </h2>
                 <form onSubmit={handleSubmitWork} className="mt-4 flex flex-col gap-3 max-w-md">
                   <input
@@ -557,7 +726,69 @@ export default function CourseDetail() {
         </div>
       </main>
 
-      <Footer />
+      {/* STUDENT ASSIGNMENT SUBMISSION MODAL */}
+      {activeAssignmentForSubmit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-paper-alt rounded-2xl shadow-xl border border-line overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold text-ink flex items-center gap-2">
+                <Upload size={20} className="text-primary" />
+                Submit Work for "{activeAssignmentForSubmit.title}"
+              </h2>
+              <button
+                onClick={() => setActiveAssignmentForSubmit(null)}
+                className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignmentSubmit} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1">
+                  Upload Submission File (PDF, DOCX, Image)
+                </label>
+                <FilePicker
+                  id="assignment-submission-file-picker"
+                  selectedName={assignmentSubmitFile?.name}
+                  onChange={(e) => setAssignmentSubmitFile(e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1 font-sans">
+                  Submission Notes / Comments (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Include any notes or links for the instructor..."
+                  value={assignmentSubmitText}
+                  onChange={(e) => setAssignmentSubmitText(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setActiveAssignmentForSubmit(null)}
+                  className="px-4 py-2 border border-line text-sm font-semibold rounded-xl text-ink-soft hover:bg-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignmentSubmitLoading}
+                  className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {assignmentSubmitLoading && <Loader2 size={14} className="animate-spin" />}
+                  Submit Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* STUDENT QUIZ PLAYER MODAL */}
       <QuizPlayerModal
@@ -578,6 +809,8 @@ export default function CourseDetail() {
           }
         }}
       />
+
+      <Footer />
     </div>
   );
 }
