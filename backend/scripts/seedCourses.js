@@ -1,11 +1,14 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import User from '../models/User.js';
 import Category from '../models/Category.js';
 import Course from '../models/Course.js';
 
-// Load environment variables from the parent backend folder
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /**
  * Seeds sample categories, a demo instructor, and a handful of published
