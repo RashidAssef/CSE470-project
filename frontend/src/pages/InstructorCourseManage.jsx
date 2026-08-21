@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings } from 'lucide-react';
-import { authService, courseService, courseFileService, enrollmentService, UPLOADS_BASE_URL } from '../services/api.js';
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings, Megaphone } from 'lucide-react';
+import { authService, courseService, courseFileService, enrollmentService, announcementService, UPLOADS_BASE_URL } from '../services/api.js';
 import FilePicker from '../components/FilePicker.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 
@@ -21,8 +21,14 @@ export default function InstructorCourseManage() {
   const [materialFile, setMaterialFile] = useState(null);
 
   // New states for student management & analytics
-  const [activeTab, setActiveTab] = useState('path'); // 'path', 'students', 'analytics'
+  const [activeTab, setActiveTab] = useState('path'); // 'path', 'students', 'analytics', 'announcements'
   const [enrolledStudents, setEnrolledStudents] = useState([]);
+  
+  // Announcements
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnnouncementTitle, setNewAnnouncementTitle] = useState('');
+  const [newAnnouncementContent, setNewAnnouncementContent] = useState('');
+  const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const [activeStudentsList, setActiveStudentsList] = useState([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [selectedStudentToEnroll, setSelectedStudentToEnroll] = useState('');
@@ -47,11 +53,13 @@ export default function InstructorCourseManage() {
       const subs = await courseFileService.getCourseSubmissions(courseId);
       setSubmissions(subs);
 
-      // Fetch enrolled students and active students lists
       const students = await enrollmentService.getCourseEnrollments(courseId);
       setEnrolledStudents(students || []);
       const allActive = await enrollmentService.getActiveStudents();
       setActiveStudentsList(allActive || []);
+
+      const anns = await announcementService.getAnnouncements(courseId);
+      setAnnouncements(anns || []);
     } catch (err) {
       setError(err.message || 'Failed to load course');
     } finally {
@@ -170,6 +178,48 @@ export default function InstructorCourseManage() {
     }
   };
 
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!newAnnouncementTitle || !newAnnouncementContent) return;
+    
+    setCreatingAnnouncement(true);
+    setError('');
+    setMessage('');
+    
+    try {
+      await announcementService.createAnnouncement(courseId, newAnnouncementTitle, newAnnouncementContent);
+      setNewAnnouncementTitle('');
+      setNewAnnouncementContent('');
+      
+      const anns = await announcementService.getAnnouncements(courseId);
+      setAnnouncements(anns || []);
+      
+      setMessage('Announcement created successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to create announcement');
+    } finally {
+      setCreatingAnnouncement(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId) => {
+    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    
+    setError('');
+    setMessage('');
+    
+    try {
+      await announcementService.deleteAnnouncement(announcementId);
+      
+      const anns = await announcementService.getAnnouncements(courseId);
+      setAnnouncements(anns || []);
+      
+      setMessage('Announcement deleted successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to delete announcement');
+    }
+  };
+
 
   if (loading) {
     return (
@@ -270,6 +320,17 @@ export default function InstructorCourseManage() {
           >
             <BarChart3 size={16} />
             Analytics Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('announcements')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors shrink-0 ${
+              activeTab === 'announcements'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate hover:text-ink'
+            }`}
+          >
+            <Megaphone size={16} />
+            Announcements
           </button>
         </div>
 
@@ -581,6 +642,83 @@ export default function InstructorCourseManage() {
               </div>
             </div>
           </section>
+        )}
+
+        {activeTab === 'announcements' && (
+          <>
+            <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
+              <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+                <Megaphone size={20} className="text-primary" /> Post an Announcement
+              </h2>
+              <p className="mt-1 text-sm text-slate">Communicate with all students enrolled in this course.</p>
+
+              <form onSubmit={handleCreateAnnouncement} className="mt-6 flex flex-col gap-4">
+                <div>
+                  <label htmlFor="annTitle" className="mb-1.5 block text-xs font-bold text-slate uppercase tracking-wider">
+                    Title
+                  </label>
+                  <input
+                    id="annTitle"
+                    type="text"
+                    required
+                    value={newAnnouncementTitle}
+                    onChange={(e) => setNewAnnouncementTitle(e.target.value)}
+                    placeholder="E.g., Welcome to the course!"
+                    className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="annContent" className="mb-1.5 block text-xs font-bold text-slate uppercase tracking-wider">
+                    Message
+                  </label>
+                  <textarea
+                    id="annContent"
+                    required
+                    rows="4"
+                    value={newAnnouncementContent}
+                    onChange={(e) => setNewAnnouncementContent(e.target.value)}
+                    placeholder="Write your announcement here..."
+                    className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink resize-none focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={creatingAnnouncement || !newAnnouncementTitle || !newAnnouncementContent}
+                    className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
+                  >
+                    {creatingAnnouncement ? 'Posting...' : 'Post Announcement'}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section className="mt-8 rounded-2xl border border-line bg-paper-alt p-6">
+              <h2 className="font-display text-lg font-semibold mb-4">Previous Announcements</h2>
+              <div className="space-y-4">
+                {announcements.length === 0 ? (
+                  <p className="text-sm text-slate text-center py-6">No announcements posted yet.</p>
+                ) : (
+                  announcements.map((ann) => (
+                    <div key={ann._id} className="rounded-xl border border-line bg-paper p-5 relative">
+                      <button
+                        onClick={() => handleDeleteAnnouncement(ann._id)}
+                        className="absolute top-4 right-4 text-slate hover:text-red-500 transition-colors"
+                        title="Delete Announcement"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <h3 className="font-bold text-ink pr-8">{ann.title}</h3>
+                      <p className="text-xs text-slate mt-1">
+                        Posted on {new Date(ann.createdAt).toLocaleDateString()} at {new Date(ann.createdAt).toLocaleTimeString()}
+                      </p>
+                      <p className="mt-3 text-sm text-ink-soft whitespace-pre-wrap">{ann.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </>
         )}
       </main>
 

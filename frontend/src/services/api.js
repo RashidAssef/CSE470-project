@@ -548,3 +548,27 @@ export const notificationService = {
     });
   },
 };
+
+// ==========================================
+// ANNOUNCEMENT API SERVICES
+// ==========================================
+export const announcementService = {
+  getAnnouncements: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/announcements`);
+    return res.data;
+  },
+
+  createAnnouncement: async (courseId, title, content) => {
+    const res = await apiFetch(`/courses/${courseId}/announcements`, {
+      method: 'POST',
+      body: { title, content },
+    });
+    return res.data;
+  },
+
+  deleteAnnouncement: async (announcementId) => {
+    return await apiFetch(`/announcements/${announcementId}`, {
+      method: 'DELETE',
+    });
+  },
+};

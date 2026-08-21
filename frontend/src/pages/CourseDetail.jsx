@@ -13,7 +13,8 @@ import {
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import FilePicker from '../components/FilePicker.jsx'
-import { courseService, enrollmentService, authService, courseFileService, UPLOADS_BASE_URL } from '../services/api.js'
+import { courseService, enrollmentService, authService, courseFileService, announcementService, UPLOADS_BASE_URL } from '../services/api.js'
+import { Megaphone } from 'lucide-react'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -35,6 +36,7 @@ export default function CourseDetail() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
   const [materials, setMaterials] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [mySubmissions, setMySubmissions] = useState([])
   const [submitTitle, setSubmitTitle] = useState('')
   const [submitFile, setSubmitFile] = useState(null)
@@ -53,6 +55,13 @@ export default function CourseDetail() {
           setMaterials(mats)
         } catch {
           setMaterials([])
+        }
+
+        try {
+          const anns = await announcementService.getAnnouncements(id)
+          setAnnouncements(anns)
+        } catch {
+          setAnnouncements([])
         }
 
         // Only students who are logged in can have an enrollment status
@@ -253,6 +262,26 @@ export default function CourseDetail() {
                     </li>
                   ))}
                 </ul>
+              </section>
+            )}
+
+            {announcements.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <Megaphone size={20} className="text-primary" />
+                  Course Announcements
+                </h2>
+                <div className="mt-4 space-y-4">
+                  {announcements.map((ann) => (
+                    <div key={ann._id} className="rounded-xl border border-line bg-paper-alt px-5 py-4">
+                      <h3 className="font-bold text-ink">{ann.title}</h3>
+                      <p className="text-xs text-slate mt-1">
+                        Posted on {new Date(ann.createdAt).toLocaleDateString()} at {new Date(ann.createdAt).toLocaleTimeString()}
+                      </p>
+                      <p className="mt-3 text-sm text-ink-soft whitespace-pre-wrap">{ann.content}</p>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
