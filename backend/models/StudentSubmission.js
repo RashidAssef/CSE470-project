@@ -34,6 +34,14 @@ const studentSubmissionSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    grade: {
+      type: Number,
+      default: null,
+    },
+    gradedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -17,6 +17,8 @@ import {
 } from '../controllers/courseFileController.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 import { uploadSingle } from '../middlewares/uploadMiddleware.js';
+import videoLectureRoutes from './videoLectureRoutes.js';
+import announcementRoutes from './announcementRoutes.js';
 
 const router = express.Router();
 
@@ -58,6 +60,8 @@ router.get(
   authorize('instructor', 'admin'),
   getCourseSubmissions
 );
+router.use('/:courseId/video-lectures', videoLectureRoutes);
+router.use('/:courseId/announcements', announcementRoutes);
 
 router.get('/:id', getCourseById);
 
