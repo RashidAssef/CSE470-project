@@ -281,6 +281,7 @@ export const courseService = {
     if (filters.category) queryParams.append('category', filters.category);
     if (filters.level) queryParams.append('level', filters.level);
     if (filters.search) queryParams.append('search', filters.search);
+    if (filters.instructor) queryParams.append('instructor', filters.instructor);
 
     const queryString = queryParams.toString();
     const endpoint = `/courses${queryString ? `?${queryString}` : ''}`;
@@ -544,6 +545,290 @@ export const notificationService = {
    */
   deleteNotification: async (notificationId) => {
     return await apiFetch(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ==========================================
+// ASSIGNMENT API SERVICES
+// ==========================================
+export const assignmentService = {
+  createAssignment: async (courseId, title, description, deadline, maxMarks, file = null) => {
+    if (file) {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('deadline', deadline);
+      formData.append('maxMarks', String(maxMarks));
+      formData.append('file', file);
+      const res = await uploadFetch(`/assignments/course/${courseId}`, formData);
+      return res.data;
+    } else {
+      const res = await apiFetch(`/assignments/course/${courseId}`, {
+        method: 'POST',
+        body: { title, description, deadline, maxMarks },
+      });
+      return res.data;
+    }
+  },
+
+  getCourseAssignments: async (courseId) => {
+    const res = await apiFetch(`/assignments/course/${courseId}`);
+    return res.data;
+  },
+
+  getAssignmentById: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}`);
+    return res.data;
+  },
+
+  updateAssignment: async (assignmentId, title, description, deadline, maxMarks, file = null) => {
+    if (file) {
+      const formData = new FormData();
+      if (title) formData.append('title', title);
+      if (description) formData.append('description', description);
+      if (deadline) formData.append('deadline', deadline);
+      if (maxMarks) formData.append('maxMarks', String(maxMarks));
+      formData.append('file', file);
+
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
+        method: 'PUT',
+        headers,
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Update failed');
+      return data.data;
+    } else {
+      const res = await apiFetch(`/assignments/${assignmentId}`, {
+        method: 'PUT',
+        body: { title, description, deadline, maxMarks },
+      });
+      return res.data;
+    }
+  },
+
+  deleteAssignment: async (assignmentId) => {
+    return await apiFetch(`/assignments/${assignmentId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  submitAssignment: async (assignmentId, file = null, submissionText = '') => {
+    const formData = new FormData();
+    if (file) formData.append('file', file);
+    if (submissionText) formData.append('submissionText', submissionText);
+    const res = await uploadFetch(`/assignments/${assignmentId}/submit`, formData);
+    return res.data;
+  },
+
+  getAssignmentSubmissions: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/submissions`);
+    return res.data;
+  },
+
+  getMySubmission: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/my-submission`);
+    return res.data;
+  },
+
+  gradeSubmission: async (submissionId, marks, feedback) => {
+    const res = await apiFetch(`/assignments/submissions/${submissionId}/grade`, {
+      method: 'PATCH',
+      body: { marks, feedback },
+    });
+    return res.data;
+  },
+
+  getMyAssignmentsOverview: async () => {
+    const res = await apiFetch('/assignments/student/my');
+    return res.data;
+  },
+};
+
+// ==========================================
+// QUIZ & ASSESSMENT API SERVICES
+// ==========================================
+export const quizService = {
+  /**
+   * Create a new quiz for a course
+   * @param {Object} quizData
+   */
+  createQuiz: async (quizData) => {
+    const res = await apiFetch('/quizzes', {
+      method: 'POST',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Update an existing quiz
+   * @param {string} quizId
+   * @param {Object} quizData
+   */
+  updateQuiz: async (quizId, quizData) => {
+    const res = await apiFetch(`/quizzes/${quizId}`, {
+      method: 'PUT',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a quiz
+   * @param {string} quizId
+   */
+  deleteQuiz: async (quizId) => {
+    return await apiFetch(`/quizzes/${quizId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Toggle quiz publish status
+   * @param {string} quizId
+   */
+  togglePublishQuiz: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/publish`, {
+      method: 'PATCH',
+    });
+    return res.data;
+  },
+
+  /**
+   * Get all quizzes for a course (instructor gets all with answers, student gets published quizzes)
+   * @param {string} courseId
+   */
+  getCourseQuizzes: async (courseId) => {
+    const res = await apiFetch(`/quizzes/course/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Get a single quiz by ID
+   * @param {string} quizId
+   */
+  getQuizById: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}`);
+    return res.data;
+  },
+
+  /**
+   * Submit quiz answers for grading
+   * @param {string} quizId
+   * @param {Object} attemptData { answers: [...], timeSpentSeconds: number }
+   */
+  submitQuizAttempt: async (quizId, attemptData) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempt`, {
+      method: 'POST',
+      body: attemptData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Get student's previous attempts for a quiz
+   * @param {string} quizId
+   */
+  getMyQuizAttempts: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempts/mine`);
+    return res.data;
+  },
+
+  /**
+   * Get detailed attempt review (with answers and explanations)
+   * @param {string} attemptId
+   */
+  getAttemptReview: async (attemptId) => {
+    const res = await apiFetch(`/quizzes/attempts/${attemptId}/review`);
+    return res.data;
+  },
+
+  /**
+   * Get instructor submissions & analytics for a quiz
+   * @param {string} quizId
+   */
+  getQuizSubmissions: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/submissions`);
+    return res.data;
+  },
+};
+
+// ==========================================
+// DISCUSSION FORUM API SERVICES
+// ==========================================
+export const forumService = {
+  /**
+   * List threads for a course (pinned first, most recently active first)
+   * @param {string} courseId
+   */
+  getThreads: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/threads`);
+    return res.data;
+  },
+
+  /**
+   * Get a single thread with all of its posts
+   * @param {string} courseId
+   * @param {string} threadId
+   */
+  getThread: async (courseId, threadId) => {
+    const res = await apiFetch(`/courses/${courseId}/threads/${threadId}`);
+    return res.data;
+  },
+
+  /**
+   * Start a new thread (with its opening post)
+   * @param {string} courseId
+   * @param {{title: string, content: string}} payload
+   */
+  createThread: async (courseId, payload) => {
+    const res = await apiFetch(`/courses/${courseId}/threads`, {
+      method: 'POST',
+      body: payload,
+    });
+    return res.data;
+  },
+
+  /**
+   * Reply to a thread
+   * @param {string} courseId
+   * @param {string} threadId
+   * @param {string} content
+   */
+  createPost: async (courseId, threadId, content) => {
+    const res = await apiFetch(`/courses/${courseId}/threads/${threadId}/posts`, {
+      method: 'POST',
+      body: { content },
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a thread (author, or instructor/co-instructor/admin only)
+   * @param {string} courseId
+   * @param {string} threadId
+   */
+  deleteThread: async (courseId, threadId) => {
+    return await apiFetch(`/courses/${courseId}/threads/${threadId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Delete a single reply (author, or instructor/co-instructor/admin only)
+   * @param {string} courseId
+   * @param {string} threadId
+   * @param {string} postId
+   */
+  deletePost: async (courseId, threadId, postId) => {
+    return await apiFetch(`/courses/${courseId}/threads/${threadId}/posts/${postId}`, {
       method: 'DELETE',
     });
   },

@@ -23,7 +23,7 @@ router.delete('/users/:id', protect, authorize('admin'), deleteUser);
 // CATEGORY MANAGEMENT ROUTES
 // ==========================================
 router.route('/categories')
-  .get(protect, getCategories) // All authenticated users can view categories (needed for Course Creation / Browse)
+  .get(getCategories) // Public GET allows category filtering on Browse Courses page
   .post(protect, authorize('admin'), createCategory); // Only admin can create
 
 router.route('/categories/:id')

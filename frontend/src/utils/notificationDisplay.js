@@ -1,4 +1,4 @@
-import { UserPlus, UserMinus, ClipboardList, HelpCircle, Award, Megaphone, Bell } from 'lucide-react'
+import { UserPlus, UserMinus, ClipboardList, HelpCircle, Award, Megaphone, MessageSquare, Bell } from 'lucide-react'
 
 export const notificationDisplay = {
   enrollment: { icon: UserPlus, color: 'text-teal', bg: 'bg-teal/10' },
@@ -7,6 +7,7 @@ export const notificationDisplay = {
   quiz: { icon: HelpCircle, color: 'text-primary-dark', bg: 'bg-primary-light' },
   grade: { icon: Award, color: 'text-amber-dark', bg: 'bg-amber/10' },
   announcement: { icon: Megaphone, color: 'text-primary-dark', bg: 'bg-primary-light' },
+  forum: { icon: MessageSquare, color: 'text-teal', bg: 'bg-teal/10' },
   general: { icon: Bell, color: 'text-slate', bg: 'bg-paper' },
 }
 
