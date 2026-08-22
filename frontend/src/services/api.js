@@ -759,3 +759,77 @@ export const quizService = {
     return res.data;
   },
 };
+
+// ==========================================
+// DISCUSSION FORUM API SERVICES
+// ==========================================
+export const forumService = {
+  /**
+   * List threads for a course (pinned first, most recently active first)
+   * @param {string} courseId
+   */
+  getThreads: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/threads`);
+    return res.data;
+  },
+
+  /**
+   * Get a single thread with all of its posts
+   * @param {string} courseId
+   * @param {string} threadId
+   */
+  getThread: async (courseId, threadId) => {
+    const res = await apiFetch(`/courses/${courseId}/threads/${threadId}`);
+    return res.data;
+  },
+
+  /**
+   * Start a new thread (with its opening post)
+   * @param {string} courseId
+   * @param {{title: string, content: string}} payload
+   */
+  createThread: async (courseId, payload) => {
+    const res = await apiFetch(`/courses/${courseId}/threads`, {
+      method: 'POST',
+      body: payload,
+    });
+    return res.data;
+  },
+
+  /**
+   * Reply to a thread
+   * @param {string} courseId
+   * @param {string} threadId
+   * @param {string} content
+   */
+  createPost: async (courseId, threadId, content) => {
+    const res = await apiFetch(`/courses/${courseId}/threads/${threadId}/posts`, {
+      method: 'POST',
+      body: { content },
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a thread (author, or instructor/co-instructor/admin only)
+   * @param {string} courseId
+   * @param {string} threadId
+   */
+  deleteThread: async (courseId, threadId) => {
+    return await apiFetch(`/courses/${courseId}/threads/${threadId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Delete a single reply (author, or instructor/co-instructor/admin only)
+   * @param {string} courseId
+   * @param {string} threadId
+   * @param {string} postId
+   */
+  deletePost: async (courseId, threadId, postId) => {
+    return await apiFetch(`/courses/${courseId}/threads/${threadId}/posts/${postId}`, {
+      method: 'DELETE',
+    });
+  },
+};

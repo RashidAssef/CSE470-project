@@ -21,6 +21,7 @@ import {
   CheckCircle,
   AlertCircle,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
@@ -333,6 +334,18 @@ export default function CourseDetail() {
                 {assignments.length} Assignment{assignments.length === 1 ? '' : 's'}
               </span>
             </div>
+
+            {currentUser && (enrolled || currentUser.role === 'instructor' || currentUser.role === 'admin') && (
+              <div className="mt-6">
+                <Link
+                  to={`/courses/${id}/forum`}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-paper-alt px-5 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-primary hover:text-primary"
+                >
+                  <MessageSquare size={16} />
+                  Discussion forum
+                </Link>
+              </div>
+            )}
 
             {/* SECTION 1: Learning Path */}
             {sortedModules.length > 0 && (
