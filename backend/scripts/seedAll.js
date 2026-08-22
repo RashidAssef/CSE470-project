@@ -264,14 +264,17 @@ const seedComprehensiveData = async () => {
 
     // 8. Seed Quizzes
     console.log('[Seed] Seeding interactive quizzes...');
+    const designCourse = seededCourses[2];
+
     const quizzesToSeed = [
+      // --- MERN COURSE QUIZZES ---
       {
         course: mernCourse._id,
         moduleOrder: 1,
         title: 'Module 1 Knowledge Check: HTML5 & Tailwind Foundations',
         description: 'Test your understanding of semantic markup, Tailwind utility classes, and layout structures.',
         instructor: primaryInstructor._id,
-        timeLimit: 10, // 10 minutes
+        timeLimit: 10,
         passingScore: 70,
         maxAttempts: 3,
         isPublished: true,
@@ -320,7 +323,7 @@ const seedComprehensiveData = async () => {
         instructor: primaryInstructor._id,
         timeLimit: 15,
         passingScore: 75,
-        maxAttempts: 0, // unlimited
+        maxAttempts: 0,
         isPublished: true,
         shuffleQuestions: false,
         showCorrectAnswersAfterSubmission: true,
@@ -349,15 +352,194 @@ const seedComprehensiveData = async () => {
             points: 1,
             explanation: 'An empty dependency array [] tells React to run the effect once after initial render.',
           },
+          {
+            questionText: 'Which of the following hooks are used to memoize values and functions to prevent unnecessary recalculations or re-renders?',
+            questionType: 'multiple_response',
+            options: ['useMemo', 'useCallback', 'useRef', 'useLayoutEffect'],
+            correctAnswers: [0, 1],
+            points: 2,
+            explanation: 'useMemo memoizes computed values, and useCallback memoizes callback functions.',
+          },
         ],
       },
+      {
+        course: mernCourse._id,
+        moduleOrder: 3,
+        title: 'Module 3 Quiz: Node.js, Express & MongoDB Architecture',
+        description: 'Evaluate your knowledge on RESTful routing, Express middleware pipelines, Mongoose models, and async error handling.',
+        instructor: primaryInstructor._id,
+        timeLimit: 15,
+        passingScore: 70,
+        maxAttempts: 3,
+        isPublished: true,
+        shuffleQuestions: true,
+        showCorrectAnswersAfterSubmission: true,
+        questions: [
+          {
+            questionText: 'In Express.js middleware functions, what is the purpose of invoking the next() callback?',
+            questionType: 'multiple_choice',
+            options: [
+              'To send the HTTP response back to the client immediately',
+              'To pass control to the next middleware function in the request-response cycle',
+              'To terminate the Node.js server process',
+              'To restart the Express routing engine',
+            ],
+            correctAnswers: [1],
+            points: 1,
+            explanation: 'Invoking next() hands over control to the subsequent middleware registered in the Express pipeline.',
+          },
+          {
+            questionText: 'Which of the following are valid Mongoose Schema data types?',
+            questionType: 'multiple_response',
+            options: ['String', 'Number', 'mongoose.Schema.Types.ObjectId', 'Float64Array', 'Boolean'],
+            correctAnswers: [0, 1, 2, 4],
+            points: 2,
+            explanation: 'Mongoose schema supports String, Number, Date, Buffer, Boolean, Mixed, ObjectId, Array, Decimal128, and Map.',
+          },
+          {
+            questionText: 'MongoDB collections enforce a strict predefined column schema at the database engine level by default.',
+            questionType: 'true_false',
+            options: ['True', 'False'],
+            correctAnswers: [1],
+            points: 1,
+            explanation: 'False. MongoDB is document-oriented and schemaless by default.',
+          },
+          {
+            questionText: 'What standard HTTP status code represents an unauthorized request when authentication credentials are missing or invalid?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['401', '401 Unauthorized'],
+            points: 1,
+            explanation: 'HTTP 401 Unauthorized indicates that the request lacks valid authentication credentials.',
+          },
+          {
+            questionText: 'Which Mongoose query method is used to automatically replace specified document paths with document(s) from other collections?',
+            questionType: 'multiple_choice',
+            options: ['.populate()', '.aggregate()', '.lookup()', '.join()'],
+            correctAnswers: [0],
+            points: 1,
+            explanation: '.populate() is the Mongoose method used to populate referenced ObjectIds from other collections.',
+          },
+        ],
+      },
+      {
+        course: mernCourse._id,
+        moduleOrder: 4,
+        title: 'Module 4 Assessment: JWT Authentication, Security & Cloud Deployment',
+        description: 'Assess best practices in JSON Web Tokens, bcrypt password hashing, CORS, environment security, and production deployment.',
+        instructor: primaryInstructor._id,
+        timeLimit: 12,
+        passingScore: 80,
+        maxAttempts: 2,
+        isPublished: true,
+        shuffleQuestions: false,
+        showCorrectAnswersAfterSubmission: true,
+        questions: [
+          {
+            questionText: 'Where should sensitive production configuration values like JWT_SECRET and MONGODB_URI be stored?',
+            questionType: 'multiple_choice',
+            options: [
+              'Hardcoded directly into server.js for quick access',
+              'Committed to the public GitHub repository in a config.json file',
+              'Environment variables (.env file loaded with dotenv, excluded in .gitignore)',
+              'Stored inside localStorage in the frontend client browser',
+            ],
+            correctAnswers: [2],
+            points: 1,
+            explanation: 'Secrets should always reside in environment variables and never be checked into version control.',
+          },
+          {
+            questionText: 'Which of the following are recommended security practices for Node.js / Express production applications?',
+            questionType: 'multiple_response',
+            options: [
+              'Hashing user passwords using bcryptjs with a salt round of 10-12',
+              'Implementing rate limiting to mitigate brute-force and DDoS attacks',
+              'Using Helmet middleware to set HTTP security headers',
+              'Returning raw database stack traces directly to the client in production error responses',
+            ],
+            correctAnswers: [0, 1, 2],
+            points: 2,
+            explanation: 'Bcrypt hashing, rate limiting, and security headers (Helmet) are standard practices.',
+          },
+          {
+            questionText: 'JSON Web Tokens (JWTs) are fully encrypted by default, meaning anyone who captures a token cannot view the decoded payload without the secret key.',
+            questionType: 'true_false',
+            options: ['True', 'False'],
+            correctAnswers: [1],
+            points: 1,
+            explanation: 'False. Standard JWTs are signed and Base64Url-encoded, NOT encrypted.',
+          },
+          {
+            questionText: 'What npm library or algorithm is industry standard for hashing passwords with salted key derivation in Node.js?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['bcrypt', 'bcryptjs', 'argon2'],
+            points: 1,
+            explanation: 'bcrypt (and bcryptjs) is the industry standard password-hashing function.',
+          },
+        ],
+      },
+      {
+        course: mernCourse._id,
+        moduleOrder: null,
+        title: 'Full-Stack MERN Midterm Certification Exam',
+        description: 'Comprehensive milestone examination covering front-to-back engineering across React, Express, and MongoDB.',
+        instructor: primaryInstructor._id,
+        timeLimit: 25,
+        passingScore: 75,
+        maxAttempts: 2,
+        isPublished: true,
+        shuffleQuestions: true,
+        showCorrectAnswersAfterSubmission: true,
+        questions: [
+          {
+            questionText: 'What is the primary role of Cross-Origin Resource Sharing (CORS) headers in a MERN architecture?',
+            questionType: 'multiple_choice',
+            options: [
+              'To compress JSON payloads over WebSocket connections',
+              'To allow a web application running at one origin (e.g. Vite on port 5173) to securely request resources from a different origin (e.g. Express on port 5000)',
+              'To automatically generate MongoDB schemas from frontend form fields',
+              'To encrypt HTTP requests with SSL certificates',
+            ],
+            correctAnswers: [1],
+            points: 1,
+            explanation: 'CORS is a browser security mechanism that allows or restricts resource sharing between different origins.',
+          },
+          {
+            questionText: 'Which React Hook is specifically designed for accessing URL route parameters configured in react-router-dom?',
+            questionType: 'multiple_choice',
+            options: ['useLocation', 'useNavigate', 'useParams', 'useSearchParams'],
+            correctAnswers: [2],
+            points: 1,
+            explanation: 'useParams returns an object of key/value pairs of URL parameters.',
+          },
+          {
+            questionText: 'An asynchronous Express route handler should handle promise rejections using try/catch blocks or pass errors to next(err).',
+            questionType: 'true_false',
+            options: ['True', 'False'],
+            correctAnswers: [0],
+            points: 1,
+            explanation: 'True. Unhandled promise rejections can cause crashes or hangs if not caught.',
+          },
+          {
+            questionText: 'What HTTP method should be used for updating only specific fields of an existing resource (partial update) in a REST API?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['PATCH', 'patch'],
+            points: 1,
+            explanation: 'PATCH is the HTTP method designated for applying partial modifications to a resource.',
+          },
+        ],
+      },
+
+      // --- MACHINE LEARNING COURSE QUIZZES ---
       {
         course: mlCourse._id,
         moduleOrder: 1,
         title: 'Python & NumPy Essentials Quiz',
         description: 'Quick check on NumPy vectorization, array broadcasting, and Pandas DataFrame manipulations.',
         instructor: primaryInstructor._id,
-        timeLimit: 0, // untimed
+        timeLimit: 0,
         passingScore: 60,
         maxAttempts: 2,
         isPublished: true,
@@ -380,8 +562,298 @@ const seedComprehensiveData = async () => {
             points: 1,
             explanation: 'True. NumPy uses vectorized C-level operations for high performance numerical computation.',
           },
+          {
+            questionText: 'Which Pandas method returns descriptive statistical summaries (mean, standard deviation, min, max, quartiles) for numeric columns?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['describe()', 'describe', 'df.describe()', 'df.describe'],
+            points: 1,
+            explanation: 'df.describe() generates summary statistics of DataFrame numerical series.',
+          },
         ],
       },
+      {
+        course: mlCourse._id,
+        moduleOrder: 2,
+        title: 'Module 2 Assessment: Supervised Learning & Scikit-Learn Algorithms',
+        description: 'Assess core supervised learning techniques: linear regression, logistic regression, decision trees, and loss functions.',
+        instructor: primaryInstructor._id,
+        timeLimit: 20,
+        passingScore: 70,
+        maxAttempts: 3,
+        isPublished: true,
+        shuffleQuestions: true,
+        showCorrectAnswersAfterSubmission: true,
+        questions: [
+          {
+            questionText: 'What is the key difference between regression and classification tasks in machine learning?',
+            questionType: 'multiple_choice',
+            options: [
+              'Regression predicts continuous numeric values, while classification predicts discrete categorical classes',
+              'Regression uses labeled data, while classification only uses unlabeled data',
+              'Regression cannot be evaluated with metrics, while classification can',
+              'Classification requires neural networks, while regression only uses linear equations',
+            ],
+            correctAnswers: [0],
+            points: 1,
+            explanation: 'Regression outputs continuous numerical values, whereas classification assigns inputs to discrete categories.',
+          },
+          {
+            questionText: 'Which of the following algorithms are commonly used for classification problems?',
+            questionType: 'multiple_response',
+            options: [
+              'Logistic Regression',
+              'Random Forest Classifier',
+              'Linear Regression',
+              'Support Vector Classifier (SVC)',
+            ],
+            correctAnswers: [0, 1, 3],
+            points: 2,
+            explanation: 'Logistic Regression, Random Forest Classifier, and SVC are classification algorithms.',
+          },
+          {
+            questionText: 'Overfitting occurs when a machine learning model memorizes noise in the training set and fails to generalize to unseen test data.',
+            questionType: 'true_false',
+            options: ['True', 'False'],
+            correctAnswers: [0],
+            points: 1,
+            explanation: 'True. High variance / overfitting leads to great training performance but poor generalization.',
+          },
+          {
+            questionText: 'What metric represents the proportion of true positive predictions out of all actual positive samples in binary classification?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['recall', 'sensitivity', 'true positive rate'],
+            points: 1,
+            explanation: 'Recall = TP / (TP + FN), measuring how many actual positive instances were captured.',
+          },
+        ],
+      },
+      {
+        course: mlCourse._id,
+        moduleOrder: 3,
+        title: 'Module 3 Quiz: Model Evaluation, Metrics & Hyperparameter Tuning',
+        description: 'Test your understanding of cross-validation, confusion matrices, ROC-AUC curves, and hyperparameter search techniques.',
+        instructor: primaryInstructor._id,
+        timeLimit: 15,
+        passingScore: 75,
+        maxAttempts: 0,
+        isPublished: true,
+        shuffleQuestions: false,
+        showCorrectAnswersAfterSubmission: true,
+        questions: [
+          {
+            questionText: 'What is the primary benefit of K-Fold Cross-Validation over a single train/test split?',
+            questionType: 'multiple_choice',
+            options: [
+              'It runs significantly faster on GPU hardware',
+              'It provides a more reliable, variance-reduced estimate of model performance by evaluating across all data partitions',
+              'It completely removes the need for hyperparameter tuning',
+              'It guarantees 100% test accuracy',
+            ],
+            correctAnswers: [1],
+            points: 1,
+            explanation: 'K-Fold cross-validation ensures every data point is used for both training and validation.',
+          },
+          {
+            questionText: 'Which of the following metrics are standard for evaluating regression models?',
+            questionType: 'multiple_response',
+            options: [
+              'Mean Squared Error (MSE)',
+              'Root Mean Squared Error (RMSE)',
+              'F1-Score',
+              'R-Squared (Coefficient of Determination)',
+              'Log-Loss',
+            ],
+            correctAnswers: [0, 1, 3],
+            points: 2,
+            explanation: 'MSE, RMSE, and R-Squared evaluate continuous regression. F1-Score and Log-Loss evaluate classification.',
+          },
+          {
+            questionText: 'A high bias machine learning model is typically underfitting the data.',
+            questionType: 'true_false',
+            options: ['True', 'False'],
+            correctAnswers: [0],
+            points: 1,
+            explanation: 'True. High bias indicates an overly simplistic model that cannot capture underlying data patterns (underfitting).',
+          },
+          {
+            questionText: 'What scikit-learn model selection utility performs an exhaustive search over a specified parameter grid?',
+            questionType: 'short_answer',
+            options: [],
+            correctAnswers: ['GridSearchCV', 'GridSearch', 'gridsearchcv'],
+            points: 1,
+            explanation: 'GridSearchCV exhaustively evaluates combinations of hyperparameters with cross-validation.',
+          },
+        ],
+      },
+
+      // --- UI/UX DESIGN COURSE QUIZZES ---
+      ...(designCourse
+        ? [
+            {
+              course: designCourse._id,
+              moduleOrder: 1,
+              title: 'Module 1 Check: User Research, Personas & Wireframing',
+              description: 'Evaluate foundational concepts in discovery research, user personas, empathy maps, and low-fidelity prototyping.',
+              instructor: secondInstructor._id,
+              timeLimit: 10,
+              passingScore: 70,
+              maxAttempts: 3,
+              isPublished: true,
+              shuffleQuestions: true,
+              showCorrectAnswersAfterSubmission: true,
+              questions: [
+                {
+                  questionText: 'What is the primary purpose of creating User Personas during the discovery phase of product design?',
+                  questionType: 'multiple_choice',
+                  options: [
+                    'To dictate the final CSS stylesheet variables',
+                    'To represent archetypes of target users based on research, helping teams design with empathy for real user needs',
+                    'To estimate project engineering billing hours',
+                    'To select photography for marketing banners',
+                  ],
+                  correctAnswers: [1],
+                  points: 1,
+                  explanation: 'Personas encapsulate user behaviors, goals, pain points, and demographics to guide user-centered decisions.',
+                },
+                {
+                  questionText: 'Which methods are commonly used for qualitative user research?',
+                  questionType: 'multiple_response',
+                  options: [
+                    '1-on-1 Semi-structured User Interviews',
+                    'Usability Observation Sessions',
+                    'Card Sorting',
+                    'Database Query Benchmarking',
+                  ],
+                  correctAnswers: [0, 1, 2],
+                  points: 2,
+                  explanation: 'Interviews, observation sessions, and card sorting are foundational qualitative UX research methods.',
+                },
+                {
+                  questionText: 'Low-fidelity wireframes should focus on visual branding, photography, and high-fidelity typography rather than layout and information architecture.',
+                  questionType: 'true_false',
+                  options: ['True', 'False'],
+                  correctAnswers: [1],
+                  points: 1,
+                  explanation: 'False. Low-fidelity wireframes deliberately focus on layout, content structure, and user flow.',
+                },
+                {
+                  questionText: 'What is the UX term for a visual timeline diagram showing the step-by-step path a user takes to reach a specific goal?',
+                  questionType: 'short_answer',
+                  options: [],
+                  correctAnswers: ['user journey', 'user flow', 'user journey map', 'customer journey map'],
+                  points: 1,
+                  explanation: 'A user journey visualizes the sequence of steps a user takes across a product experience.',
+                },
+              ],
+            },
+            {
+              course: designCourse._id,
+              moduleOrder: 2,
+              title: 'Module 2 Assessment: Visual Hierarchy, Color Theory & Typography',
+              description: 'Assess your eye for typography scales, contrast ratios, accessibility (WCAG AA), and the 60-30-10 color rule.',
+              instructor: secondInstructor._id,
+              timeLimit: 15,
+              passingScore: 75,
+              maxAttempts: 2,
+              isPublished: true,
+              shuffleQuestions: false,
+              showCorrectAnswersAfterSubmission: true,
+              questions: [
+                {
+                  questionText: 'Which design principle arranges interface elements in a way that naturally leads the viewer’s eye in order of visual importance?',
+                  questionType: 'multiple_choice',
+                  options: ['Visual Hierarchy', 'Code Splitting', 'Color Inversion', 'Symmetric Redundancy'],
+                  correctAnswers: [0],
+                  points: 1,
+                  explanation: 'Visual hierarchy guides user perception through size, contrast, weight, color, and whitespace.',
+                },
+                {
+                  questionText: 'According to WCAG 2.1 AA accessibility guidelines, what is the minimum required contrast ratio for standard body text against its background?',
+                  questionType: 'multiple_choice',
+                  options: ['3:1', '4.5:1', '7:1', '10:1'],
+                  correctAnswers: [1],
+                  points: 1,
+                  explanation: 'WCAG AA requires at least a 4.5:1 contrast ratio for normal text.',
+                },
+                {
+                  questionText: 'Which techniques help establish strong contrast and hierarchy between text elements?',
+                  questionType: 'multiple_response',
+                  options: [
+                    'Varying font weight (e.g. bold header vs regular body)',
+                    'Adjusting typographic scale (e.g. 32px title vs 16px body)',
+                    'Using contrasting text colors (e.g. dark slate vs muted gray)',
+                    'Setting all text to uppercase italics at the same font size',
+                  ],
+                  correctAnswers: [0, 1, 2],
+                  points: 2,
+                  explanation: 'Font weight, typographic size scale, and intentional text colors establish clear visual hierarchy.',
+                },
+                {
+                  questionText: 'In color theory for UI design, the 60-30-10 rule suggests using 60% dominant color, 30% secondary/supporting color, and what percentage for accent/call-to-action color?',
+                  questionType: 'short_answer',
+                  options: [],
+                  correctAnswers: ['10%', '10', '10 percent'],
+                  points: 1,
+                  explanation: 'The remaining 10% is reserved for accent/action colors like primary buttons.',
+                },
+              ],
+            },
+            {
+              course: designCourse._id,
+              moduleOrder: 3,
+              title: 'Module 3 Quiz: Figma Components, Auto-Layout & Design Tokens',
+              description: 'Evaluate your technical mastery of Figma Auto-Layout (flex direction, padding, gap), component variants, and design tokens.',
+              instructor: secondInstructor._id,
+              timeLimit: 12,
+              passingScore: 70,
+              maxAttempts: 0,
+              isPublished: true,
+              shuffleQuestions: true,
+              showCorrectAnswersAfterSubmission: true,
+              questions: [
+                {
+                  questionText: 'Which Figma feature allows buttons and containers to automatically resize and maintain dynamic padding when their label changes?',
+                  questionType: 'multiple_choice',
+                  options: ['Auto Layout', 'Boolean Operation', 'Smart Animate', 'Vector Pen Tool'],
+                  correctAnswers: [0],
+                  points: 1,
+                  explanation: 'Auto Layout is Figma’s flexbox-like feature that automatically handles dynamic resizing and padding.',
+                },
+                {
+                  questionText: 'Which elements are standard components of a scalable design system?',
+                  questionType: 'multiple_response',
+                  options: [
+                    'Color palette tokens (primary, neutral, semantic error/success)',
+                    'Typography scale and line-height tokens',
+                    'Reusable UI components (buttons, modals, inputs)',
+                    'Random hex values hardcoded into individual screens',
+                  ],
+                  correctAnswers: [0, 1, 2],
+                  points: 2,
+                  explanation: 'Design systems provide standardized tokens for colors, typography, spacing, and reusable components.',
+                },
+                {
+                  questionText: 'In Figma, when you modify the master Main Component, all instances across all artboards update automatically unless specifically overridden.',
+                  questionType: 'true_false',
+                  options: ['True', 'False'],
+                  correctAnswers: [0],
+                  points: 1,
+                  explanation: 'True. Instances inherit properties from their Main Component, enabling instantaneous global updates.',
+                },
+                {
+                  questionText: 'What Figma feature allows designers to bundle different states (hover, active, disabled) and sizes (sm, md, lg) of a component into a single container?',
+                  questionType: 'short_answer',
+                  options: [],
+                  correctAnswers: ['variants', 'component variants', 'variant'],
+                  points: 1,
+                  explanation: 'Component Variants organize multiple related states and configurations into one unified component set.',
+                },
+              ],
+            },
+          ]
+        : []),
     ];
 
     const seededQuizzes = [];
@@ -390,6 +862,17 @@ const seedComprehensiveData = async () => {
       if (!quiz) {
         quiz = await Quiz.create(qData);
         console.log(`  -> Created quiz: "${quiz.title}"`);
+      } else {
+        quiz.questions = qData.questions;
+        quiz.moduleOrder = qData.moduleOrder;
+        quiz.timeLimit = qData.timeLimit;
+        quiz.passingScore = qData.passingScore;
+        quiz.maxAttempts = qData.maxAttempts;
+        quiz.isPublished = qData.isPublished;
+        quiz.shuffleQuestions = qData.shuffleQuestions;
+        quiz.showCorrectAnswersAfterSubmission = qData.showCorrectAnswersAfterSubmission;
+        await quiz.save();
+        console.log(`  -> Updated quiz: "${quiz.title}"`);
       }
       seededQuizzes.push(quiz);
     }
@@ -397,118 +880,126 @@ const seedComprehensiveData = async () => {
     // 9. Seed Student Quiz Attempts
     console.log('[Seed] Seeding student quiz attempts...');
     if (seededQuizzes.length > 0 && students.length >= 2) {
-      const quiz1 = seededQuizzes[0];
+      for (let i = 0; i < seededQuizzes.length; i++) {
+        const quiz = seededQuizzes[i];
+        if (!quiz.questions || quiz.questions.length === 0) continue;
 
-      // Student 1: Passed attempt
-      const existingAttempt1 = await QuizAttempt.findOne({ quiz: quiz1._id, student: students[0]._id });
-      if (!existingAttempt1) {
-        await QuizAttempt.create({
-          quiz: quiz1._id,
-          course: quiz1.course,
-          student: students[0]._id,
-          attemptNumber: 1,
-          answers: [
-            {
-              questionId: quiz1.questions[0]._id,
-              questionText: quiz1.questions[0].questionText,
-              questionType: 'multiple_choice',
-              selectedOptions: [1],
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-            {
-              questionId: quiz1.questions[1]._id,
-              questionText: quiz1.questions[1].questionText,
-              questionType: 'multiple_response',
-              selectedOptions: [0, 1, 3],
-              isCorrect: true,
-              pointsAwarded: 2,
-              maxPoints: 2,
-            },
-            {
-              questionId: quiz1.questions[2]._id,
-              questionText: quiz1.questions[2].questionText,
-              questionType: 'true_false',
-              selectedOptions: [1],
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-            {
-              questionId: quiz1.questions[3]._id,
-              questionText: quiz1.questions[3].questionText,
-              questionType: 'short_answer',
-              textAnswer: 'hover:',
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-          ],
-          score: 5,
-          totalPoints: 5,
-          percentage: 100,
-          passed: true,
-          timeSpentSeconds: 180,
-          submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        });
-        console.log(`  -> Created passed quiz attempt (100%) for ${students[0].name}`);
-      }
+        // Student 1 (students[0]): High score attempt on quizzes
+        if (i % 2 === 0 || i === 1) {
+          const student0 = students[0];
+          let attempt0 = await QuizAttempt.findOne({ quiz: quiz._id, student: student0._id, attemptNumber: 1 });
+          if (!attempt0) {
+            const answers = quiz.questions.map((q) => {
+              let selectedOptions = [];
+              let textAnswer = '';
+              if (q.questionType === 'multiple_choice' || q.questionType === 'true_false') {
+                selectedOptions = [q.correctAnswers[0]];
+              } else if (q.questionType === 'multiple_response') {
+                selectedOptions = [...q.correctAnswers];
+              } else if (q.questionType === 'short_answer') {
+                textAnswer = String(q.correctAnswers[0]);
+              }
+              return {
+                questionId: q._id,
+                questionText: q.questionText,
+                questionType: q.questionType,
+                selectedOptions,
+                textAnswer,
+                isCorrect: true,
+                pointsAwarded: q.points || 1,
+                maxPoints: q.points || 1,
+              };
+            });
 
-      // Student 2: Partial attempt
-      const existingAttempt2 = await QuizAttempt.findOne({ quiz: quiz1._id, student: students[1]._id });
-      if (!existingAttempt2) {
-        await QuizAttempt.create({
-          quiz: quiz1._id,
-          course: quiz1.course,
-          student: students[1]._id,
-          attemptNumber: 1,
-          answers: [
-            {
-              questionId: quiz1.questions[0]._id,
-              questionText: quiz1.questions[0].questionText,
-              questionType: 'multiple_choice',
-              selectedOptions: [1],
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-            {
-              questionId: quiz1.questions[1]._id,
-              questionText: quiz1.questions[1].questionText,
-              questionType: 'multiple_response',
-              selectedOptions: [0, 1], // missing option 3
-              isCorrect: false,
-              pointsAwarded: 0,
-              maxPoints: 2,
-            },
-            {
-              questionId: quiz1.questions[2]._id,
-              questionText: quiz1.questions[2].questionText,
-              questionType: 'true_false',
-              selectedOptions: [1],
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-            {
-              questionId: quiz1.questions[3]._id,
-              questionText: quiz1.questions[3].questionText,
-              questionType: 'short_answer',
-              textAnswer: 'hover',
-              isCorrect: true,
-              pointsAwarded: 1,
-              maxPoints: 1,
-            },
-          ],
-          score: 3,
-          totalPoints: 5,
-          percentage: 60,
-          passed: false,
-          timeSpentSeconds: 240,
-          submittedAt: new Date(),
-        });
-        console.log(`  -> Created quiz attempt (60%) for ${students[1].name}`);
+            const totalPoints = quiz.questions.reduce((sum, q) => sum + (q.points || 1), 0);
+            const score = totalPoints;
+            const percentage = 100;
+            const passed = percentage >= quiz.passingScore;
+
+            await QuizAttempt.create({
+              quiz: quiz._id,
+              course: quiz.course,
+              student: student0._id,
+              attemptNumber: 1,
+              answers,
+              score,
+              totalPoints,
+              percentage,
+              passed,
+              timeSpentSeconds: 120 + Math.floor(Math.random() * 150),
+              submittedAt: new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000),
+            });
+            console.log(`  -> Created passed attempt for ${student0.name} on "${quiz.title}"`);
+          }
+        }
+
+        // Student 2 (students[1]): Varied score attempt
+        if (students.length > 1 && (i === 0 || i % 3 === 0)) {
+          const student1 = students[1];
+          let attempt1 = await QuizAttempt.findOne({ quiz: quiz._id, student: student1._id, attemptNumber: 1 });
+          if (!attempt1) {
+            let totalPoints = 0;
+            let score = 0;
+            const answers = quiz.questions.map((q, idx) => {
+              const maxP = q.points || 1;
+              totalPoints += maxP;
+              const isCorrect = idx !== 1; // 2nd question wrong
+              let selectedOptions = [];
+              let textAnswer = '';
+              let pointsAwarded = 0;
+
+              if (isCorrect) {
+                pointsAwarded = maxP;
+                score += pointsAwarded;
+                if (q.questionType === 'multiple_choice' || q.questionType === 'true_false') {
+                  selectedOptions = [q.correctAnswers[0]];
+                } else if (q.questionType === 'multiple_response') {
+                  selectedOptions = [...q.correctAnswers];
+                } else if (q.questionType === 'short_answer') {
+                  textAnswer = String(q.correctAnswers[0]);
+                }
+              } else {
+                pointsAwarded = 0;
+                if (q.questionType === 'multiple_choice' || q.questionType === 'true_false') {
+                  selectedOptions = [0];
+                } else if (q.questionType === 'multiple_response') {
+                  selectedOptions = [0];
+                } else if (q.questionType === 'short_answer') {
+                  textAnswer = 'attempt answer';
+                }
+              }
+
+              return {
+                questionId: q._id,
+                questionText: q.questionText,
+                questionType: q.questionType,
+                selectedOptions,
+                textAnswer,
+                isCorrect,
+                pointsAwarded,
+                maxPoints: maxP,
+              };
+            });
+
+            const percentage = Math.round((score / totalPoints) * 100);
+            const passed = percentage >= quiz.passingScore;
+
+            await QuizAttempt.create({
+              quiz: quiz._id,
+              course: quiz.course,
+              student: student1._id,
+              attemptNumber: 1,
+              answers,
+              score,
+              totalPoints,
+              percentage,
+              passed,
+              timeSpentSeconds: 160 + Math.floor(Math.random() * 120),
+              submittedAt: new Date(Date.now() - (i + 0.5) * 24 * 60 * 60 * 1000),
+            });
+            console.log(`  -> Created attempt (${percentage}%) for ${student1.name} on "${quiz.title}"`);
+          }
+        }
       }
     }
 
