@@ -16,6 +16,7 @@ import {
   getCourseSubmissions,
 } from '../controllers/courseFileController.js';
 import forumRoutes from './forumRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 import { uploadSingle } from '../middlewares/uploadMiddleware.js';
 
@@ -63,6 +64,9 @@ router.get(
 // Discussion forum (list/create threads, replies) — see forumRoutes.js.
 // mergeParams lets forumRoutes read :courseId from this parent router.
 router.use('/:courseId/threads', forumRoutes);
+
+// Reviews & ratings — see reviewRoutes.js.
+router.use('/:courseId/reviews', reviewRoutes);
 
 router.get('/:id', getCourseById);
 

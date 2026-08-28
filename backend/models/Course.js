@@ -64,6 +64,19 @@ const courseSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Denormalized rating stats, kept in sync by the Review controller —
+    // same reasoning as enrolledCount above.
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     // Ordered learning path modules for this course (Module 1 → Module 2 → …)
     modules: [
       {
