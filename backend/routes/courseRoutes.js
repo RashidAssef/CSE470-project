@@ -14,6 +14,7 @@ import {
   uploadStudentSubmission,
   getMySubmissions,
   getCourseSubmissions,
+  gradeStudentSubmission,
 } from '../controllers/courseFileController.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 import { uploadSingle } from '../middlewares/uploadMiddleware.js';
@@ -59,6 +60,12 @@ router.get(
   protect,
   authorize('instructor', 'admin'),
   getCourseSubmissions
+);
+router.patch(
+  '/:courseId/submissions/:submissionId/grade',
+  protect,
+  authorize('instructor', 'admin'),
+  gradeStudentSubmission
 );
 router.use('/:courseId/video-lectures', videoLectureRoutes);
 router.use('/:courseId/announcements', announcementRoutes);

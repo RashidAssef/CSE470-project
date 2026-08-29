@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings, Megaphone } from 'lucide-react';
-import { authService, courseService, courseFileService, enrollmentService, announcementService, UPLOADS_BASE_URL } from '../services/api.js';
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings, Megaphone, Video } from 'lucide-react';
+import { authService, courseService, courseFileService, enrollmentService, announcementService, videoLectureService, UPLOADS_BASE_URL } from '../services/api.js';
 import FilePicker from '../components/FilePicker.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 
@@ -19,6 +19,14 @@ export default function InstructorCourseManage() {
   const [savingModules, setSavingModules] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [materialFile, setMaterialFile] = useState(null);
+
+  // Video Lectures
+  const [lectures, setLectures] = useState([]);
+  const [newVideoTitle, setNewVideoTitle] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newVideoDuration, setNewVideoDuration] = useState('');
+  const [addingVideoToModule, setAddingVideoToModule] = useState(null); // module index or null
+  const [savingVideo, setSavingVideo] = useState(false);
 
   // New states for student management & analytics
   const [activeTab, setActiveTab] = useState('path'); // 'path', 'students', 'analytics', 'announcements'
@@ -60,6 +68,9 @@ export default function InstructorCourseManage() {
 
       const anns = await announcementService.getAnnouncements(courseId);
       setAnnouncements(anns || []);
+
+      const vids = await videoLectureService.getLectures(courseId);
+      setLectures(vids || []);
     } catch (err) {
       setError(err.message || 'Failed to load course');
     } finally {
@@ -127,6 +138,55 @@ export default function InstructorCourseManage() {
       setError(err.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleAddVideoLecture = async (e, moduleOrder) => {
+    e.preventDefault();
+    if (!newVideoTitle || !newVideoUrl) return;
+    setSavingVideo(true);
+    setError('');
+    setMessage('');
+    try {
+      // determine next order
+      const moduleVids = lectures.filter(l => l.moduleOrder === moduleOrder);
+      const nextOrder = moduleVids.length > 0 ? Math.max(...moduleVids.map(l => l.order)) + 1 : 1;
+      
+      await videoLectureService.createLecture(
+        courseId, 
+        newVideoTitle, 
+        newVideoUrl, 
+        moduleOrder, 
+        parseInt(newVideoDuration) || 0, 
+        nextOrder
+      );
+      
+      setNewVideoTitle('');
+      setNewVideoUrl('');
+      setNewVideoDuration('');
+      setAddingVideoToModule(null);
+      
+      const vids = await videoLectureService.getLectures(courseId);
+      setLectures(vids || []);
+      setMessage('Video lecture added.');
+    } catch (err) {
+      setError(err.message || 'Failed to add video lecture');
+    } finally {
+      setSavingVideo(false);
+    }
+  };
+
+  const handleDeleteVideoLecture = async (lectureId) => {
+    if (!window.confirm("Are you sure you want to delete this video lecture?")) return;
+    setError('');
+    setMessage('');
+    try {
+      await videoLectureService.deleteLecture(lectureId);
+      const vids = await videoLectureService.getLectures(courseId);
+      setLectures(vids || []);
+      setMessage('Video lecture deleted.');
+    } catch (err) {
+      setError(err.message || 'Failed to delete video lecture');
     }
   };
 
@@ -217,6 +277,20 @@ export default function InstructorCourseManage() {
       setMessage('Announcement deleted successfully.');
     } catch (err) {
       setError(err.message || 'Failed to delete announcement');
+    }
+  };
+
+  const handleGradeSubmission = async (submissionId, gradeValue) => {
+    if (gradeValue === '') return;
+    setError('');
+    setMessage('');
+    try {
+      await courseFileService.gradeSubmission(courseId, submissionId, gradeValue);
+      const subs = await courseFileService.getCourseSubmissions(courseId);
+      setSubmissions(subs);
+      setMessage('Submission graded successfully.');
+    } catch (err) {
+      setError(err.message || 'Failed to grade submission');
     }
   };
 
@@ -371,6 +445,59 @@ export default function InstructorCourseManage() {
                       rows={2}
                       className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm resize-none"
                     />
+
+                    {/* VIDEO LECTURES FOR THIS MODULE */}
+                    <div className="mt-4 pt-4 border-t border-line">
+                      <h4 className="text-sm font-semibold text-ink flex items-center gap-1.5 mb-2">
+                        <Video size={16} className="text-slate" /> Video Lectures
+                      </h4>
+                      <div className="space-y-2 mb-3">
+                        {lectures.filter(l => l.moduleOrder === (index + 1)).length === 0 ? (
+                          <p className="text-xs text-slate">No videos added yet.</p>
+                        ) : (
+                          lectures.filter(l => l.moduleOrder === (index + 1)).map(vid => (
+                            <div key={vid._id} className="flex items-center justify-between bg-paper-alt border border-line rounded px-3 py-2">
+                              <div>
+                                <p className="text-xs font-semibold">{vid.title}</p>
+                                <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline truncate block max-w-[200px] sm:max-w-xs">{vid.videoUrl}</a>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteVideoLecture(vid._id)}
+                                className="text-slate hover:text-red-500"
+                                title="Delete Video"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {addingVideoToModule === (index + 1) ? (
+                        <form onSubmit={(e) => handleAddVideoLecture(e, index + 1)} className="mt-2 bg-paper-alt border border-line p-3 rounded flex flex-col gap-2">
+                          <input type="text" required placeholder="Video Title" value={newVideoTitle} onChange={e => setNewVideoTitle(e.target.value)} className="w-full text-xs p-1.5 rounded border border-line" />
+                          <input type="url" required placeholder="Video URL (e.g. YouTube/Vimeo)" value={newVideoUrl} onChange={e => setNewVideoUrl(e.target.value)} className="w-full text-xs p-1.5 rounded border border-line" />
+                          <input type="number" placeholder="Duration (seconds)" value={newVideoDuration} onChange={e => setNewVideoDuration(e.target.value)} className="w-full text-xs p-1.5 rounded border border-line" />
+                          <div className="flex gap-2 justify-end mt-1">
+                            <button type="button" onClick={() => setAddingVideoToModule(null)} className="text-xs text-slate hover:text-ink">Cancel</button>
+                            <button type="submit" disabled={savingVideo} className="text-xs bg-primary text-white px-2 py-1 rounded disabled:opacity-50">Save</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingVideoToModule(index + 1);
+                            setNewVideoTitle('');
+                            setNewVideoUrl('');
+                            setNewVideoDuration('');
+                          }}
+                          className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline"
+                        >
+                          <Plus size={12} /> Add Video
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -442,19 +569,51 @@ export default function InstructorCourseManage() {
                   <li className="text-sm text-slate">No submissions yet.</li>
                 ) : (
                   submissions.map((sub) => (
-                    <li key={sub._id} className="rounded-lg border border-line bg-paper px-4 py-3 text-sm">
-                      <p className="font-semibold">{sub.title}</p>
-                      <p className="text-xs text-slate">
-                        {sub.student?.name || 'Student'} · {new Date(sub.createdAt).toLocaleString()}
-                      </p>
-                      <a
-                        href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-block text-primary font-medium hover:underline"
-                      >
-                        {sub.originalName}
-                      </a>
+                    <li key={sub._id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-line bg-paper px-4 py-3 text-sm gap-4">
+                      <div>
+                        <p className="font-semibold">{sub.title}</p>
+                        <p className="text-xs text-slate">
+                          {sub.student?.name || 'Student'} · {new Date(sub.createdAt).toLocaleString()}
+                        </p>
+                        <a
+                          href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-primary font-medium hover:underline"
+                        >
+                          {sub.originalName}
+                        </a>
+                      </div>
+                      
+                      <div className="flex flex-col gap-1 items-start sm:items-end">
+                        {sub.grade !== undefined && sub.grade !== null ? (
+                          <span className="text-sm font-semibold text-teal bg-teal/10 px-2 py-1 rounded">
+                            Grade: {sub.grade}/100
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate italic mb-1">Not graded</span>
+                        )}
+                        <div className="flex gap-2">
+                          <input 
+                            type="number" 
+                            placeholder="Score (0-100)"
+                            min="0"
+                            max="100"
+                            className="w-24 text-xs border border-line rounded px-2 py-1"
+                            id={`grade-${sub._id}`}
+                          />
+                          <button 
+                            onClick={() => {
+                              const el = document.getElementById(`grade-${sub._id}`);
+                              handleGradeSubmission(sub._id, el.value);
+                              el.value = '';
+                            }}
+                            className="bg-primary text-white text-xs px-3 py-1 rounded hover:bg-primary-dark"
+                          >
+                            Grade
+                          </button>
+                        </div>
+                      </div>
                     </li>
                   ))
                 )}

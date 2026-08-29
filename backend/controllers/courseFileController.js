@@ -16,6 +16,8 @@ const filePayload = (doc) => ({
   uploadedBy: doc.uploadedBy,
   student: doc.student,
   title: doc.title,
+  grade: doc.grade,
+  gradedAt: doc.gradedAt,
 });
 
 /**
@@ -213,6 +215,47 @@ export const getCourseSubmissions = async (req, res, next) => {
       status: 'success',
       results: submissions.length,
       data: submissions.map(filePayload),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Instructor grades a student submission
+ * @route   PATCH /api/courses/:courseId/submissions/:submissionId/grade
+ */
+export const gradeStudentSubmission = async (req, res, next) => {
+  const { courseId, submissionId } = req.params;
+  const { grade } = req.body;
+
+  try {
+    if (grade === undefined) {
+      return res.status(400).json({ status: 'fail', message: 'Please provide a grade' });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ status: 'fail', message: 'Course not found' });
+    }
+
+    if (!canManageCourse(course, req.user)) {
+      return res.status(403).json({ status: 'fail', message: 'Not authorized' });
+    }
+
+    const submission = await StudentSubmission.findOne({ _id: submissionId, course: courseId });
+    if (!submission) {
+      return res.status(404).json({ status: 'fail', message: 'Submission not found' });
+    }
+
+    submission.grade = Number(grade);
+    submission.gradedAt = new Date();
+    await submission.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Submission graded',
+      data: filePayload(submission),
     });
   } catch (error) {
     next(error);

@@ -403,6 +403,14 @@ export const courseFileService = {
     const res = await uploadFetch(`/courses/${courseId}/submissions`, formData);
     return res.data;
   },
+
+  gradeSubmission: async (courseId, submissionId, grade) => {
+    const res = await apiFetch(`/courses/${courseId}/submissions/${submissionId}/grade`, {
+      method: 'PATCH',
+      body: { grade },
+    });
+    return res.data;
+  },
 };
 
 // ==========================================
@@ -568,6 +576,30 @@ export const announcementService = {
 
   deleteAnnouncement: async (announcementId) => {
     return await apiFetch(`/announcements/${announcementId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ==========================================
+// VIDEO LECTURE API SERVICES
+// ==========================================
+export const videoLectureService = {
+  getLectures: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/video-lectures`);
+    return res.data;
+  },
+
+  createLecture: async (courseId, title, videoUrl, moduleOrder, duration, order) => {
+    const res = await apiFetch(`/courses/${courseId}/video-lectures`, {
+      method: 'POST',
+      body: { title, videoUrl, moduleOrder, duration, order },
+    });
+    return res.data;
+  },
+
+  deleteLecture: async (lectureId) => {
+    return await apiFetch(`/video-lectures/${lectureId}`, {
       method: 'DELETE',
     });
   },

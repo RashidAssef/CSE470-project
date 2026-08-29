@@ -13,8 +13,8 @@ import {
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import FilePicker from '../components/FilePicker.jsx'
-import { courseService, enrollmentService, authService, courseFileService, announcementService, UPLOADS_BASE_URL } from '../services/api.js'
-import { Megaphone } from 'lucide-react'
+import { courseService, enrollmentService, authService, courseFileService, announcementService, videoLectureService, UPLOADS_BASE_URL } from '../services/api.js'
+import { Megaphone, PlayCircle, Heart } from 'lucide-react'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -37,10 +37,14 @@ export default function CourseDetail() {
   const [actionMessage, setActionMessage] = useState('')
   const [materials, setMaterials] = useState([])
   const [announcements, setAnnouncements] = useState([])
+  const [lectures, setLectures] = useState([])
   const [mySubmissions, setMySubmissions] = useState([])
   const [submitTitle, setSubmitTitle] = useState('')
   const [submitFile, setSubmitFile] = useState(null)
   const [submitLoading, setSubmitLoading] = useState(false)
+  
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -64,6 +68,13 @@ export default function CourseDetail() {
           setAnnouncements([])
         }
 
+        try {
+          const vids = await videoLectureService.getLectures(id)
+          setLectures(vids)
+        } catch {
+          setLectures([])
+        }
+
         // Only students who are logged in can have an enrollment status
         if (currentUser?.role === 'student') {
           const status = await enrollmentService.getEnrollmentStatus(id)
@@ -72,6 +83,13 @@ export default function CourseDetail() {
           if (status.enrolled) {
             const subs = await courseFileService.getMySubmissions(id)
             setMySubmissions(subs)
+          }
+          
+          try {
+            const wishlist = await authService.getWishlist()
+            setIsWishlisted(wishlist.some(c => c._id === id))
+          } catch {
+            setIsWishlisted(false)
           }
         }
       } catch (err) {
@@ -124,6 +142,24 @@ export default function CourseDetail() {
       setActionMessage(err.message || 'Could not unenroll from this course')
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleToggleWishlist = async () => {
+    if (!currentUser || currentUser.role !== 'student') return;
+    setWishlistLoading(true);
+    try {
+      if (isWishlisted) {
+        await authService.removeFromWishlist(id);
+        setIsWishlisted(false);
+      } else {
+        await authService.addToWishlist(id);
+        setIsWishlisted(true);
+      }
+    } catch (err) {
+      setActionMessage(err.message || 'Failed to update wishlist');
+    } finally {
+      setWishlistLoading(false);
     }
   }
 
@@ -236,6 +272,35 @@ export default function CourseDetail() {
                       {mod.description && (
                         <p className="mt-1 text-sm text-ink-soft">{mod.description}</p>
                       )}
+
+                      {/* VIDEO LECTURES */}
+                      {enrolled && currentUser?.role === 'student' && lectures.filter(l => l.moduleOrder === mod.order).length > 0 && (
+                        <div className="mt-4 space-y-3">
+                          {lectures.filter(l => l.moduleOrder === mod.order).map((vid) => (
+                            <div key={vid._id} className="rounded-lg bg-paper border border-line p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <PlayCircle size={16} className="text-primary" />
+                                <span className="text-sm font-semibold text-ink">{vid.title}</span>
+                              </div>
+                              {/* Simple iframe for YouTube/Vimeo links. Fallback to anchor if it's just a regular link or we want a generic embed */}
+                              <div className="aspect-video w-full rounded overflow-hidden bg-slate text-center flex flex-col justify-center items-center">
+                                {vid.videoUrl.includes('youtube.com') || vid.videoUrl.includes('youtu.be') ? (
+                                  <iframe 
+                                    src={vid.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                                    className="w-full h-full" 
+                                    allowFullScreen
+                                    title={vid.title}
+                                  ></iframe>
+                                ) : (
+                                  <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-paper hover:underline text-sm flex items-center gap-2">
+                                    <PlayCircle size={20} /> Watch Video
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -318,16 +383,23 @@ export default function CourseDetail() {
                 {mySubmissions.length > 0 && (
                   <ul className="mt-6 space-y-3 text-sm">
                     {mySubmissions.map((sub) => (
-                      <li key={sub._id} className="rounded-lg border border-line bg-paper-alt px-4 py-3">
-                        <p className="font-medium text-ink">{sub.title}</p>
-                        <a
-                          href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-primary hover:underline"
-                        >
-                          {sub.originalName}
-                        </a>
+                      <li key={sub._id} className="flex justify-between items-center rounded-lg border border-line bg-paper-alt px-4 py-3">
+                        <div>
+                          <p className="font-medium text-ink">{sub.title}</p>
+                          <a
+                            href={`${UPLOADS_BASE_URL}${sub.fileUrl}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-primary text-xs hover:underline"
+                          >
+                            {sub.originalName}
+                          </a>
+                        </div>
+                        {sub.grade !== null && sub.grade !== undefined && (
+                          <div className="bg-teal/10 text-teal px-3 py-1.5 rounded-lg text-sm font-bold">
+                            Score: {sub.grade}/100
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -363,6 +435,17 @@ export default function CourseDetail() {
                 className="mt-4 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
               >
                 {actionLoading ? 'Enrolling...' : 'Enroll now'}
+              </button>
+            )}
+
+            {currentUser?.role === 'student' && !enrolled && (
+              <button
+                onClick={handleToggleWishlist}
+                disabled={wishlistLoading}
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-full border border-line py-3 text-sm font-semibold text-ink-soft transition-colors hover:bg-paper hover:text-ink disabled:opacity-50"
+              >
+                <Heart size={18} className={isWishlisted ? "fill-red-500 text-red-500" : ""} />
+                {wishlistLoading ? 'Updating...' : isWishlisted ? 'Saved to Wishlist' : 'Save to Wishlist'}
               </button>
             )}
 
