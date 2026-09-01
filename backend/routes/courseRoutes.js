@@ -16,6 +16,7 @@ import {
   getCourseSubmissions,
 } from '../controllers/courseFileController.js';
 import forumRoutes from './forumRoutes.js';
+import { getCourseAnalytics } from '../controllers/analyticsController.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 import { uploadSingle } from '../middlewares/uploadMiddleware.js';
 
@@ -63,6 +64,10 @@ router.get(
 // Discussion forum (list/create threads, replies) — see forumRoutes.js.
 // mergeParams lets forumRoutes read :courseId from this parent router.
 router.use('/:courseId/threads', forumRoutes);
+
+// Analytics for a single course — instructor/co-instructor of that course, or admin.
+// Access is checked inside the controller via canManageCourse.
+router.get('/:courseId/analytics', protect, getCourseAnalytics);
 
 router.get('/:id', getCourseById);
 
