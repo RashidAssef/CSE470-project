@@ -833,3 +833,50 @@ export const forumService = {
     });
   },
 };
+
+// ==========================================
+// REVIEW & RATING API SERVICES
+// ==========================================
+export const reviewService = {
+  /**
+   * List all reviews for a course (public, most recent first)
+   * @param {string} courseId
+   */
+  getCourseReviews: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews`);
+    return res.data;
+  },
+
+  /**
+   * Get the logged-in student's own review for a course, if any (null if none)
+   * @param {string} courseId
+   */
+  getMyReview: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews/my`);
+    return res.data;
+  },
+
+  /**
+   * Create or update the logged-in student's review for this course
+   * @param {string} courseId
+   * @param {{rating: number, comment?: string}} payload
+   */
+  submitReview: async (courseId, payload) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews`, {
+      method: 'POST',
+      body: payload,
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a review (author, or instructor/co-instructor/admin of the course)
+   * @param {string} courseId
+   * @param {string} reviewId
+   */
+  deleteReview: async (courseId, reviewId) => {
+    return await apiFetch(`/courses/${courseId}/reviews/${reviewId}`, {
+      method: 'DELETE',
+    });
+  },
+};

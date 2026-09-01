@@ -27,6 +27,7 @@ const notificationSchema = new mongoose.Schema(
         'grade',
         'announcement',
         'forum',
+        'review',
         'general',
       ],
       default: 'general',
