@@ -14,7 +14,7 @@ export const UPLOADS_BASE_URL = 'http://localhost:5000';
  */
 export const apiFetch = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   // 1. Setup headers
   const headers = {
     'Content-Type': 'application/json',
@@ -191,10 +191,10 @@ export const adminService = {
     if (filters.role) queryParams.append('role', filters.role);
     if (filters.status) queryParams.append('status', filters.status);
     if (filters.search) queryParams.append('search', filters.search);
-    
+
     const queryString = queryParams.toString();
     const endpoint = `/admin/users${queryString ? `?${queryString}` : ''}`;
-    
+
     const res = await apiFetch(endpoint);
     return res.data;
   },
@@ -281,6 +281,7 @@ export const courseService = {
     if (filters.category) queryParams.append('category', filters.category);
     if (filters.level) queryParams.append('level', filters.level);
     if (filters.search) queryParams.append('search', filters.search);
+    if (filters.instructor) queryParams.append('instructor', filters.instructor);
 
     const queryString = queryParams.toString();
     const endpoint = `/courses${queryString ? `?${queryString}` : ''}`;
@@ -557,50 +558,6 @@ export const notificationService = {
   },
 };
 
-// ==========================================
-// ANNOUNCEMENT API SERVICES
-// ==========================================
-export const announcementService = {
-  getAnnouncements: async (courseId) => {
-    const res = await apiFetch(`/courses/${courseId}/announcements`);
-    return res.data;
-  },
-
-  createAnnouncement: async (courseId, title, content) => {
-    const res = await apiFetch(`/courses/${courseId}/announcements`, {
-      method: 'POST',
-      body: { title, content },
-    });
-    return res.data;
-  },
-
-  deleteAnnouncement: async (announcementId) => {
-    return await apiFetch(`/announcements/${announcementId}`, {
-      method: 'DELETE',
-    });
-  },
-};
-
-// ==========================================
-// VIDEO LECTURE API SERVICES
-// ==========================================
-export const videoLectureService = {
-  getLectures: async (courseId) => {
-    const res = await apiFetch(`/courses/${courseId}/video-lectures`);
-    return res.data;
-  },
-
-  createLecture: async (courseId, title, videoUrl, moduleOrder, duration, order) => {
-    const res = await apiFetch(`/courses/${courseId}/video-lectures`, {
-      method: 'POST',
-      body: { title, videoUrl, moduleOrder, duration, order },
-    });
-    return res.data;
-  },
-
-  deleteLecture: async (lectureId) => {
-    return await apiFetch(`/video-lectures/${lectureId}`, {
-      method: 'DELETE',
-    });
-  },
-};
+export const assignmentService = {};
+export const forumService = {};
+export const quizService = {};

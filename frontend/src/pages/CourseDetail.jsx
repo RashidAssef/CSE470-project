@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Users,
@@ -13,38 +13,32 @@ import {
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import FilePicker from '../components/FilePicker.jsx'
-import { courseService, enrollmentService, authService, courseFileService, announcementService, videoLectureService, UPLOADS_BASE_URL } from '../services/api.js'
-import { Megaphone, PlayCircle, Heart } from 'lucide-react'
+import { courseService, enrollmentService, authService, courseFileService, UPLOADS_BASE_URL } from '../services/api.js'
 
 const levelLabels = {
   beginner: 'Beginner',
   intermediate: 'Intermediate',
   advanced: 'Advanced',
-}
+};
 
 export default function CourseDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const currentUser = authService.getCurrentUser()
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const currentUser = authService.getCurrentUser();
 
-  const [course, setCourse] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [enrolled, setEnrolled] = useState(false)
   const [enrollmentId, setEnrollmentId] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
   const [materials, setMaterials] = useState([])
-  const [announcements, setAnnouncements] = useState([])
-  const [lectures, setLectures] = useState([])
   const [mySubmissions, setMySubmissions] = useState([])
   const [submitTitle, setSubmitTitle] = useState('')
   const [submitFile, setSubmitFile] = useState(null)
   const [submitLoading, setSubmitLoading] = useState(false)
-  
-  const [isWishlisted, setIsWishlisted] = useState(false)
-  const [wishlistLoading, setWishlistLoading] = useState(false)
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -61,20 +55,6 @@ export default function CourseDetail() {
           setMaterials([])
         }
 
-        try {
-          const anns = await announcementService.getAnnouncements(id)
-          setAnnouncements(anns)
-        } catch {
-          setAnnouncements([])
-        }
-
-        try {
-          const vids = await videoLectureService.getLectures(id)
-          setLectures(vids)
-        } catch {
-          setLectures([])
-        }
-
         // Only students who are logged in can have an enrollment status
         if (currentUser?.role === 'student') {
           const status = await enrollmentService.getEnrollmentStatus(id)
@@ -83,13 +63,6 @@ export default function CourseDetail() {
           if (status.enrolled) {
             const subs = await courseFileService.getMySubmissions(id)
             setMySubmissions(subs)
-          }
-          
-          try {
-            const wishlist = await authService.getWishlist()
-            setIsWishlisted(wishlist.some(c => c._id === id))
-          } catch {
-            setIsWishlisted(false)
           }
         }
       } catch (err) {
@@ -101,96 +74,128 @@ export default function CourseDetail() {
 
     fetchCourse()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  }, [id]);
 
   const handleEnroll = async () => {
     if (!currentUser) {
-      navigate('/login')
-      return
+      navigate('/login');
+      return;
     }
 
     if (currentUser.role !== 'student') {
-      setActionMessage('Only student accounts can enroll in courses.')
-      return
+      setActionMessage('Only student accounts can enroll in courses.');
+      return;
     }
 
-    setActionLoading(true)
-    setActionMessage('')
+    setActionLoading(true);
+    setActionMessage('');
     try {
-      const res = await enrollmentService.enroll(id)
-      setEnrolled(true)
-      setEnrollmentId(res.data._id)
-      setCourse((prev) => ({ ...prev, enrolledCount: prev.enrolledCount + 1 }))
-      setActionMessage(res.message)
+      const res = await enrollmentService.enroll(id);
+      setEnrolled(true);
+      setEnrollmentId(res.data._id);
+      setCourse((prev) => ({ ...prev, enrolledCount: prev.enrolledCount + 1 }));
+      setActionMessage(res.message);
+      // Reload quizzes & assignments to get student attempt status
+      const qList = await quizService.getCourseQuizzes(id);
+      setQuizzes(qList || []);
     } catch (err) {
-      setActionMessage(err.message || 'Could not enroll in this course')
+      setActionMessage(err.message || 'Could not enroll in this course');
     } finally {
-      setActionLoading(false)
+      setActionLoading(false);
     }
-  }
+  };
 
   const handleUnenroll = async () => {
-    setActionLoading(true)
-    setActionMessage('')
+    setActionLoading(true);
+    setActionMessage('');
     try {
-      await enrollmentService.unenroll(enrollmentId)
-      setEnrolled(false)
-      setEnrollmentId(null)
-      setCourse((prev) => ({ ...prev, enrolledCount: Math.max(0, prev.enrolledCount - 1) }))
-      setActionMessage('You have unenrolled from this course.')
+      await enrollmentService.unenroll(enrollmentId);
+      setEnrolled(false);
+      setEnrollmentId(null);
+      setCourse((prev) => ({ ...prev, enrolledCount: Math.max(0, prev.enrolledCount - 1) }));
+      setActionMessage('You have unenrolled from this course.');
     } catch (err) {
-      setActionMessage(err.message || 'Could not unenroll from this course')
+      setActionMessage(err.message || 'Could not unenroll from this course');
     } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleToggleWishlist = async () => {
-    if (!currentUser || currentUser.role !== 'student') return;
-    setWishlistLoading(true);
-    try {
-      if (isWishlisted) {
-        await authService.removeFromWishlist(id);
-        setIsWishlisted(false);
-      } else {
-        await authService.addToWishlist(id);
-        setIsWishlisted(true);
-      }
-    } catch (err) {
-      setActionMessage(err.message || 'Failed to update wishlist');
-    } finally {
-      setWishlistLoading(false);
+      setActionLoading(false);
     }
   }
 
   const handleSubmitWork = async (e) => {
-    e.preventDefault()
-    if (!submitFile || !submitTitle.trim()) return
-    setSubmitLoading(true)
-    setActionMessage('')
+    e.preventDefault();
+    if (!submitFile || !submitTitle.trim()) return;
+    setSubmitLoading(true);
+    setActionMessage('');
     try {
-      await courseFileService.uploadSubmission(id, submitFile, submitTitle.trim())
-      const subs = await courseFileService.getMySubmissions(id)
-      setMySubmissions(subs)
-      setSubmitTitle('')
-      setSubmitFile(null)
-      e.target.reset()
-      setActionMessage('Submission uploaded successfully.')
+      await courseFileService.uploadSubmission(id, submitFile, submitTitle.trim());
+      const subs = await courseFileService.getMySubmissions(id);
+      setMySubmissions(subs);
+      setSubmitTitle('');
+      setSubmitFile(null);
+      e.target.reset();
+      setActionMessage('Submission uploaded successfully.');
     } catch (err) {
-      setActionMessage(err.message || 'Upload failed')
+      setActionMessage(err.message || 'Upload failed');
     } finally {
-      setSubmitLoading(false)
+      setSubmitLoading(false);
     }
-  }
+  };
 
-  const sortedModules = [...(course?.modules || [])].sort((a, b) => a.order - b.order)
+  const handleAssignmentSubmit = async (e) => {
+    e.preventDefault();
+    if (!activeAssignmentForSubmit) return;
+    if (!assignmentSubmitFile && !assignmentSubmitText.trim()) {
+      alert('Please upload a file or enter submission notes.');
+      return;
+    }
+    setAssignmentSubmitLoading(true);
+    try {
+      const res = await assignmentService.submitAssignment(
+        activeAssignmentForSubmit._id,
+        assignmentSubmitFile,
+        assignmentSubmitText.trim()
+      );
+      setAssignmentSubmissions((prev) => ({ ...prev, [activeAssignmentForSubmit._id]: res }));
+      setActiveAssignmentForSubmit(null);
+      setAssignmentSubmitFile(null);
+      setAssignmentSubmitText('');
+      setActionMessage('Assignment submitted successfully!');
+    } catch (err) {
+      alert(err.message || 'Failed to submit assignment');
+    } finally {
+      setAssignmentSubmitLoading(false);
+    }
+  };
+
+  const handleStartQuiz = (quizId) => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    if (!enrolled) {
+      setActionMessage('You must enroll in this course to take assessments.');
+      return;
+    }
+    setActiveQuizForTaking(quizId);
+  };
+
+  const handleQuizCompleted = async (result) => {
+    const qList = await quizService.getCourseQuizzes(id);
+    setQuizzes(qList || []);
+
+    if (result && result.attemptId) {
+      setActiveAttemptForReview(result.attemptId);
+    }
+  };
+
+  const sortedModules = [...(course?.modules || [])].sort((a, b) => a.order - b.order);
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper">
         <Loader2 className="animate-spin text-primary" size={28} />
       </div>
-    )
+    );
   }
 
   if (error || !course) {
@@ -204,7 +209,7 @@ export default function CourseDetail() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -251,8 +256,29 @@ export default function CourseDetail() {
                 <BarChart3 size={16} />
                 {levelLabels[course.level]} level
               </span>
+              <span className="flex items-center gap-2">
+                <Award size={16} />
+                {quizzes.length} Quiz{quizzes.length === 1 ? '' : 'zes'}
+              </span>
+              <span className="flex items-center gap-2">
+                <ClipboardList size={16} />
+                {assignments.length} Assignment{assignments.length === 1 ? '' : 's'}
+              </span>
             </div>
 
+            {currentUser && (enrolled || currentUser.role === 'instructor' || currentUser.role === 'admin') && (
+              <div className="mt-6">
+                <Link
+                  to={`/courses/${id}/forum`}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-paper-alt px-5 py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:border-primary hover:text-primary"
+                >
+                  <MessageSquare size={16} />
+                  Discussion forum
+                </Link>
+              </div>
+            )}
+
+            {/* SECTION 1: Learning Path */}
             {sortedModules.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
@@ -272,41 +298,243 @@ export default function CourseDetail() {
                       {mod.description && (
                         <p className="mt-1 text-sm text-ink-soft">{mod.description}</p>
                       )}
-
-                      {/* VIDEO LECTURES */}
-                      {enrolled && currentUser?.role === 'student' && lectures.filter(l => l.moduleOrder === mod.order).length > 0 && (
-                        <div className="mt-4 space-y-3">
-                          {lectures.filter(l => l.moduleOrder === mod.order).map((vid) => (
-                            <div key={vid._id} className="rounded-lg bg-paper border border-line p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <PlayCircle size={16} className="text-primary" />
-                                <span className="text-sm font-semibold text-ink">{vid.title}</span>
-                              </div>
-                              {/* Simple iframe for YouTube/Vimeo links. Fallback to anchor if it's just a regular link or we want a generic embed */}
-                              <div className="aspect-video w-full rounded overflow-hidden bg-slate text-center flex flex-col justify-center items-center">
-                                {vid.videoUrl.includes('youtube.com') || vid.videoUrl.includes('youtu.be') ? (
-                                  <iframe 
-                                    src={vid.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
-                                    className="w-full h-full" 
-                                    allowFullScreen
-                                    title={vid.title}
-                                  ></iframe>
-                                ) : (
-                                  <a href={vid.videoUrl} target="_blank" rel="noreferrer" className="text-paper hover:underline text-sm flex items-center gap-2">
-                                    <PlayCircle size={20} /> Watch Video
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </li>
                   ))}
                 </ol>
               </section>
             )}
 
+            {/* SECTION 2: Quizzes & Knowledge Checks */}
+            {quizzes.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                    <Award size={20} className="text-primary" />
+                    Quizzes & Knowledge Checks ({quizzes.length})
+                  </h2>
+                </div>
+                <p className="mt-1 text-sm text-slate">
+                  Test your understanding with self-paced or timed evaluations.
+                </p>
+
+                <div className="mt-4 space-y-4">
+                  {quizzes.map((quiz) => {
+                    const attemptsMade = quiz.totalAttemptsMade || 0;
+                    const maxAttempts = quiz.maxAttempts || 0;
+                    const hasAttemptsLeft = maxAttempts === 0 || attemptsMade < maxAttempts;
+                    const hasPassed = quiz.hasPassed;
+                    const latestAttempt = quiz.latestAttempt;
+
+                    return (
+                      <div
+                        key={quiz._id}
+                        className="rounded-2xl border border-line bg-paper-alt p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-2 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {quiz.moduleOrder && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary-light text-primary border border-primary/20">
+                                Module {quiz.moduleOrder}
+                              </span>
+                            )}
+                            <span className="text-xs text-slate font-medium">
+                              {quiz.questionCount} Questions · {quiz.totalPoints} Points
+                            </span>
+                            {quiz.timeLimit > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs text-slate font-medium">
+                                <Clock size={12} /> {quiz.timeLimit} mins
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="font-display text-base font-bold text-ink">{quiz.title}</h3>
+                          {quiz.description && (
+                            <p className="text-xs text-slate line-clamp-2">{quiz.description}</p>
+                          )}
+
+                          {/* Student attempt status pill if enrolled */}
+                          {enrolled && currentUser?.role === 'student' && (
+                            <div className="flex flex-wrap items-center gap-3 text-xs pt-1">
+                              {attemptsMade > 0 ? (
+                                <>
+                                  <span
+                                    className={`inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-full ${hasPassed
+                                        ? 'bg-teal/10 text-teal'
+                                        : 'bg-amber/10 text-amber-dark'
+                                      }`}
+                                  >
+                                    {hasPassed ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                                    {hasPassed ? 'Passed' : 'Completed'} (Best: {quiz.highestScore}%)
+                                  </span>
+                                  <span className="text-slate">
+                                    Attempts: {attemptsMade} {maxAttempts > 0 ? `/ ${maxAttempts}` : ''}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-slate italic">Not attempted yet</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-line w-full md:w-auto justify-end">
+                          {enrolled && currentUser?.role === 'student' ? (
+                            <>
+                              {latestAttempt && (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveAttemptForReview(latestAttempt._id)}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-paper border border-line text-ink-soft hover:text-primary rounded-xl transition"
+                                >
+                                  <Eye size={14} />
+                                  <span>View Review</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                disabled={!hasAttemptsLeft}
+                                onClick={() => handleStartQuiz(quiz._id)}
+                                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition shadow-sm ${hasAttemptsLeft
+                                    ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20'
+                                    : 'bg-slate/20 text-slate cursor-not-allowed'
+                                  }`}
+                              >
+                                {attemptsMade > 0 ? (
+                                  <>
+                                    <RotateCcw size={14} />
+                                    <span>{hasAttemptsLeft ? 'Retake Quiz' : 'No Attempts Left'}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play size={14} />
+                                    <span>Take Quiz</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleEnroll}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-paper border border-line text-primary hover:bg-primary-light rounded-xl transition"
+                            >
+                              <span>Enroll to Attempt</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION 3: Course Assignments */}
+            {assignments.length > 0 && (
+              <section className="mt-10 border-t border-line pt-8">
+                <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                  <ClipboardList size={20} className="text-primary" />
+                  Course Assignments ({assignments.length})
+                </h2>
+                <p className="mt-1 text-sm text-slate">
+                  Complete and submit assignments to get instructor feedback and marks.
+                </p>
+
+                <div className="mt-4 space-y-4">
+                  {assignments.map((assign) => {
+                    const mySub = assignmentSubmissions[assign._id];
+                    const isSubmitted = Boolean(mySub);
+                    const isGraded = mySub && mySub.marks !== undefined && mySub.marks !== null;
+
+                    return (
+                      <div
+                        key={assign._id}
+                        className="rounded-2xl border border-line bg-paper-alt p-5 flex flex-col gap-4"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-display text-base font-bold text-ink">{assign.title}</h3>
+                              {isGraded ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal/10 text-teal border border-teal/20">
+                                  <CheckCircle size={12} /> Graded: {mySub.marks}/{assign.maxMarks}
+                                </span>
+                              ) : isSubmitted ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber/10 text-amber-dark border border-amber/20">
+                                  <Clock size={12} /> Submitted (Awaiting Grade)
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-slate mt-1">
+                              Max Marks: {assign.maxMarks} · Due:{' '}
+                              {new Date(assign.deadline).toLocaleString([], {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        {assign.description && (
+                          <p className="text-xs text-ink-soft leading-relaxed whitespace-pre-line">
+                            {assign.description}
+                          </p>
+                        )}
+
+                        {assign.fileUrl && (
+                          <div>
+                            <a
+                              href={`${UPLOADS_BASE_URL}${assign.fileUrl}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                            >
+                              <FileText size={14} /> Download Instructions ({assign.originalName})
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Submission status for enrolled students */}
+                        {enrolled && currentUser?.role === 'student' && (
+                          <div className="pt-3 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="text-xs text-slate">
+                              {isSubmitted ? (
+                                <span>
+                                  Submitted on {new Date(mySub.submittedAt).toLocaleString()}
+                                  {mySub.feedback && (
+                                    <span className="block text-teal mt-0.5 font-medium">
+                                      Instructor Feedback: {mySub.feedback}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-amber-dark font-medium">Not submitted yet</span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveAssignmentForSubmit(assign);
+                                setAssignmentSubmitFile(null);
+                                setAssignmentSubmitText(mySub?.submissionText || '');
+                              }}
+                              className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary-dark transition-colors shrink-0"
+                            >
+                              {isSubmitted ? 'Resubmit Assignment' : 'Submit Assignment'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* SECTION 4: Learning Materials */}
             {materials.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
@@ -350,11 +578,12 @@ export default function CourseDetail() {
               </section>
             )}
 
+            {/* SECTION 5: Student File Submission (General) */}
             {enrolled && currentUser?.role === 'student' && (
               <section className="mt-10 border-t border-line pt-8">
                 <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
                   <Upload size={20} className="text-primary" />
-                  Submit your work
+                  Submit general course work
                 </h2>
                 <form onSubmit={handleSubmitWork} className="mt-4 flex flex-col gap-3 max-w-md">
                   <input
@@ -408,8 +637,8 @@ export default function CourseDetail() {
             )}
           </div>
 
-          {/* Enrollment card */}
-          <aside className="h-fit rounded-2xl border border-line bg-paper-alt p-6">
+          {/* Right Aside: Enrollment Card */}
+          <aside className="h-fit rounded-2xl border border-line bg-paper-alt p-6 sticky top-24">
             <p className="font-display text-2xl font-semibold text-ink">
               {course.price > 0 ? `৳${course.price}` : 'Free'}
             </p>
@@ -465,7 +694,91 @@ export default function CourseDetail() {
         </div>
       </main>
 
+      {/* STUDENT ASSIGNMENT SUBMISSION MODAL */}
+      {activeAssignmentForSubmit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-paper-alt rounded-2xl shadow-xl border border-line overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold text-ink flex items-center gap-2">
+                <Upload size={20} className="text-primary" />
+                Submit Work for "{activeAssignmentForSubmit.title}"
+              </h2>
+              <button
+                onClick={() => setActiveAssignmentForSubmit(null)}
+                className="p-1 text-slate hover:text-ink rounded-lg hover:bg-paper transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignmentSubmit} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1">
+                  Upload Submission File (PDF, DOCX, Image)
+                </label>
+                <FilePicker
+                  id="assignment-submission-file-picker"
+                  selectedName={assignmentSubmitFile?.name}
+                  onChange={(e) => setAssignmentSubmitFile(e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate uppercase tracking-wider block mb-1 font-sans">
+                  Submission Notes / Comments (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Include any notes or links for the instructor..."
+                  value={assignmentSubmitText}
+                  onChange={(e) => setAssignmentSubmitText(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink focus:border-primary focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setActiveAssignmentForSubmit(null)}
+                  className="px-4 py-2 border border-line text-sm font-semibold rounded-xl text-ink-soft hover:bg-paper transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignmentSubmitLoading}
+                  className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {assignmentSubmitLoading && <Loader2 size={14} className="animate-spin" />}
+                  Submit Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STUDENT QUIZ PLAYER MODAL */}
+      <QuizPlayerModal
+        isOpen={Boolean(activeQuizForTaking)}
+        onClose={() => setActiveQuizForTaking(null)}
+        quizId={activeQuizForTaking}
+        onQuizCompleted={handleQuizCompleted}
+      />
+
+      {/* STUDENT QUIZ ATTEMPT REVIEW MODAL */}
+      <QuizResultModal
+        isOpen={Boolean(activeAttemptForReview)}
+        onClose={() => setActiveAttemptForReview(null)}
+        attemptId={activeAttemptForReview}
+        onRetake={() => {
+          if (activeQuizForTaking) {
+            setActiveQuizForTaking(activeQuizForTaking);
+          }
+        }}
+      />
+
       <Footer />
     </div>
-  )
+  );
 }

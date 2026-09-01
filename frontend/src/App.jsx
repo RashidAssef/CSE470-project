@@ -9,6 +9,8 @@ import InstructorCourseManage from './pages/InstructorCourseManage.jsx';
 import BrowseCourses from './pages/BrowseCourses.jsx';
 import CourseDetail from './pages/CourseDetail.jsx';
 import Notifications from './pages/Notifications.jsx';
+import CourseForum from './pages/CourseForum.jsx';
+import ThreadDetail from './pages/ThreadDetail.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
@@ -22,6 +24,10 @@ function App() {
       {/* Course Enrollment Routes (public browsing; enroll action requires student login) */}
       <Route path="/courses" element={<BrowseCourses />} />
       <Route path="/courses/:id" element={<CourseDetail />} />
+
+      {/* Discussion Forum (enrolled students, instructor/co-instructor/admin only) */}
+      <Route path="/courses/:id/forum" element={<CourseForum />} />
+      <Route path="/courses/:id/forum/:threadId" element={<ThreadDetail />} />
 
       {/* Notifications (any logged-in role) */}
       <Route path="/notifications" element={<Notifications />} />

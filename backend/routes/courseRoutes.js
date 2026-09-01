@@ -16,6 +16,7 @@ import {
   getCourseSubmissions,
   gradeStudentSubmission,
 } from '../controllers/courseFileController.js';
+import forumRoutes from './forumRoutes.js';
 import { protect, authorize } from '../middlewares/authMiddleware.js';
 import { uploadSingle } from '../middlewares/uploadMiddleware.js';
 import videoLectureRoutes from './videoLectureRoutes.js';
@@ -36,7 +37,7 @@ const handleUpload = (handler) => (req, res, next) => {
 // COURSE BROWSING ROUTES (Public)
 // ==========================================
 router.get('/', getCourses);
-router.get('/instructors/active', protect, getActiveInstructors);
+router.get('/instructors/active', getActiveInstructors);
 router.get('/instructor/my', protect, authorize('instructor'), getInstructorCourses);
 
 // Learning path modules & file uploads (before /:id)
@@ -69,6 +70,10 @@ router.patch(
 );
 router.use('/:courseId/video-lectures', videoLectureRoutes);
 router.use('/:courseId/announcements', announcementRoutes);
+
+// Discussion forum (list/create threads, replies) — see forumRoutes.js.
+// mergeParams lets forumRoutes read :courseId from this parent router.
+router.use('/:courseId/threads', forumRoutes);
 
 router.get('/:id', getCourseById);
 

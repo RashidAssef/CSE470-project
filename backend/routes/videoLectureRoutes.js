@@ -4,7 +4,7 @@ import {
   addVideoLecture,
   deleteVideoLecture
 } from '../controllers/videoLectureController.js';
-import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+import { protect, authorize } from '../middlewares/authMiddleware.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -13,9 +13,10 @@ const router = express.Router({ mergeParams: true });
 
 router.route('/')
   .get(protect, getVideoLectures)
-  .post(protect, restrictTo('instructor', 'admin'), addVideoLecture);
+  .post(protect, authorize('instructor', 'admin'), addVideoLecture);
 
 router.route('/:id')
-  .delete(protect, restrictTo('instructor', 'admin'), deleteVideoLecture);
+  .delete(protect, authorize('instructor', 'admin'), deleteVideoLecture);
+
 
 export default router;
