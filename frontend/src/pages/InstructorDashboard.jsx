@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { authService, courseService, adminService } from '../services/api.js';
 import NotificationBell from '../components/NotificationBell.jsx';
+import { BarChart3 as AnalyticsIcon } from 'lucide-react';
 
 export default function InstructorDashboard() {
   const navigate = useNavigate();
@@ -242,6 +243,15 @@ export default function InstructorDashboard() {
           
           {/* Notification Icon */}
           <NotificationBell />
+
+          {/* Analytics */}
+          <Link
+            to="/instructor/analytics"
+            title="Analytics"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-paper hover:text-primary"
+          >
+            <AnalyticsIcon size={20} />
+          </Link>
 
           {/* Profile Settings Icon */}
           <button

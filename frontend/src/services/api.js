@@ -835,6 +835,25 @@ export const forumService = {
 };
 
 // ==========================================
+<<<<<<< HEAD
+// ANALYTICS API SERVICES
+// ==========================================
+export const analyticsService = {
+  /**
+   * Cross-course analytics for every course the logged-in instructor teaches
+   */
+  getInstructorAnalytics: async () => {
+    const res = await apiFetch('/analytics/instructor');
+    return res.data;
+  },
+
+  /**
+   * Detailed analytics for a single course (instructor/co-instructor/admin only)
+   * @param {string} courseId
+   */
+  getCourseAnalytics: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/analytics`);
+=======
 // REVIEW & RATING API SERVICES
 // ==========================================
 export const reviewService = {
@@ -844,10 +863,19 @@ export const reviewService = {
    */
   getCourseReviews: async (courseId) => {
     const res = await apiFetch(`/courses/${courseId}/reviews`);
+>>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
     return res.data;
   },
 
   /**
+<<<<<<< HEAD
+   * Platform-wide analytics
+   */
+  getAdminAnalytics: async () => {
+    const res = await apiFetch('/analytics/admin');
+    return res.data;
+  },
+=======
    * Get the logged-in student's own review for a course, if any (null if none)
    * @param {string} courseId
    */
@@ -879,4 +907,5 @@ export const reviewService = {
       method: 'DELETE',
     });
   },
+>>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
 };
