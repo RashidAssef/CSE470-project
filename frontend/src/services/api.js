@@ -835,6 +835,7 @@ export const forumService = {
 };
 
 // ==========================================
+<<<<<<< HEAD
 // ANALYTICS API SERVICES
 // ==========================================
 export const analyticsService = {
@@ -852,14 +853,59 @@ export const analyticsService = {
    */
   getCourseAnalytics: async (courseId) => {
     const res = await apiFetch(`/courses/${courseId}/analytics`);
+=======
+// REVIEW & RATING API SERVICES
+// ==========================================
+export const reviewService = {
+  /**
+   * List all reviews for a course (public, most recent first)
+   * @param {string} courseId
+   */
+  getCourseReviews: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews`);
+>>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
     return res.data;
   },
 
   /**
+<<<<<<< HEAD
    * Platform-wide analytics
    */
   getAdminAnalytics: async () => {
     const res = await apiFetch('/analytics/admin');
     return res.data;
   },
+=======
+   * Get the logged-in student's own review for a course, if any (null if none)
+   * @param {string} courseId
+   */
+  getMyReview: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews/my`);
+    return res.data;
+  },
+
+  /**
+   * Create or update the logged-in student's review for this course
+   * @param {string} courseId
+   * @param {{rating: number, comment?: string}} payload
+   */
+  submitReview: async (courseId, payload) => {
+    const res = await apiFetch(`/courses/${courseId}/reviews`, {
+      method: 'POST',
+      body: payload,
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a review (author, or instructor/co-instructor/admin of the course)
+   * @param {string} courseId
+   * @param {string} reviewId
+   */
+  deleteReview: async (courseId, reviewId) => {
+    return await apiFetch(`/courses/${courseId}/reviews/${reviewId}`, {
+      method: 'DELETE',
+    });
+  },
+>>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
 };

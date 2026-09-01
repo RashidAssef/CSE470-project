@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Users, BookOpen, X, RotateCcw } from 'lucide-react'
+import { Search, Users, BookOpen, X, RotateCcw, Star } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import { courseService, adminService, authService, enrollmentService } from '../services/api.js'
@@ -249,6 +249,12 @@ export default function BrowseCourses() {
                       <Users size={14} />
                       {course.enrolledCount} enrolled
                     </span>
+                    {course.reviewCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Star size={14} className="fill-amber text-amber" />
+                        {course.averageRating} ({course.reviewCount})
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-6 flex items-center justify-between border-t border-line pt-4 w-full">
