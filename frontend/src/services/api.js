@@ -833,3 +833,33 @@ export const forumService = {
     });
   },
 };
+
+// ==========================================
+// ANALYTICS API SERVICES
+// ==========================================
+export const analyticsService = {
+  /**
+   * Cross-course analytics for every course the logged-in instructor teaches
+   */
+  getInstructorAnalytics: async () => {
+    const res = await apiFetch('/analytics/instructor');
+    return res.data;
+  },
+
+  /**
+   * Detailed analytics for a single course (instructor/co-instructor/admin only)
+   * @param {string} courseId
+   */
+  getCourseAnalytics: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/analytics`);
+    return res.data;
+  },
+
+  /**
+   * Platform-wide analytics
+   */
+  getAdminAnalytics: async () => {
+    const res = await apiFetch('/analytics/admin');
+    return res.data;
+  },
+};

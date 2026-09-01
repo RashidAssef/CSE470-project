@@ -11,6 +11,9 @@ import CourseDetail from './pages/CourseDetail.jsx';
 import Notifications from './pages/Notifications.jsx';
 import CourseForum from './pages/CourseForum.jsx';
 import ThreadDetail from './pages/ThreadDetail.jsx';
+import InstructorAnalytics from './pages/InstructorAnalytics.jsx';
+import AdminAnalytics from './pages/AdminAnalytics.jsx';
+import CourseAnalytics from './pages/CourseAnalytics.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 function App() {
@@ -28,6 +31,9 @@ function App() {
       {/* Discussion Forum (enrolled students, instructor/co-instructor/admin only) */}
       <Route path="/courses/:id/forum" element={<CourseForum />} />
       <Route path="/courses/:id/forum/:threadId" element={<ThreadDetail />} />
+
+      {/* Course-level Analytics (instructor/co-instructor of that course, or admin) */}
+      <Route path="/courses/:id/analytics" element={<CourseAnalytics />} />
 
       {/* Notifications (any logged-in role) */}
       <Route path="/notifications" element={<Notifications />} />
@@ -66,6 +72,22 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['instructor']}>
             <InstructorCourseManage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/instructor/analytics"
+        element={
+          <ProtectedRoute allowedRoles={['instructor']}>
+            <InstructorAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/analytics"
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminAnalytics />
           </ProtectedRoute>
         }
       />

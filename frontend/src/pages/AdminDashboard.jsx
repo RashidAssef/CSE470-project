@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
   CheckCircle,
@@ -515,8 +515,16 @@ export default function AdminDashboard() {
           <h2 className="font-display text-xl font-semibold capitalize text-ink">
             {activeTab === 'users' ? 'User Directory' : activeTab === 'approvals' ? 'Instructor Verification' : activeTab === 'categories' ? 'Course Categories' : 'Manage Courses'}
           </h2>
-          <div className="text-xs font-semibold bg-primary-light text-primary px-3 py-1.5 rounded-full border border-primary/10">
-            System Online (MERN)
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/analytics"
+              className="text-xs font-semibold bg-paper text-ink-soft px-3 py-1.5 rounded-full border border-line hover:border-primary hover:text-primary transition-colors"
+            >
+              View analytics
+            </Link>
+            <div className="text-xs font-semibold bg-primary-light text-primary px-3 py-1.5 rounded-full border border-primary/10">
+              System Online (MERN)
+            </div>
           </div>
         </header>
 

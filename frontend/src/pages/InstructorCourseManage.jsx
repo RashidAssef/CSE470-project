@@ -1027,6 +1027,14 @@ export default function InstructorCourseManage() {
                 </p>
               </div>
             </div>
+
+            <Link
+              to={`/courses/${courseId}/analytics`}
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+            >
+              <BarChart3 size={16} />
+              View detailed analytics (quiz scores, engagement, trends)
+            </Link>
           </section>
         )}
       </main>
