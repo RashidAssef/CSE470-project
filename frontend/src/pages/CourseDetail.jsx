@@ -9,11 +9,26 @@ import {
   ListOrdered,
   FileText,
   Upload,
+  Award,
+  ClipboardList,
+  MessageSquare,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  RotateCcw,
+  Play,
+  CheckCircle,
+  Heart,
+  X,
+  Megaphone
 } from 'lucide-react'
 import Navbar from '../components/Navbar.jsx'
 import Footer from '../components/Footer.jsx'
 import FilePicker from '../components/FilePicker.jsx'
-import { courseService, enrollmentService, authService, courseFileService, UPLOADS_BASE_URL } from '../services/api.js'
+import QuizPlayerModal from '../components/QuizPlayerModal.jsx'
+import QuizResultModal from '../components/QuizResultModal.jsx'
+import { courseService, enrollmentService, authService, courseFileService, quizService, assignmentService, announcementService, UPLOADS_BASE_URL } from '../services/api.js'
 
 const levelLabels = {
   beginner: 'Beginner',
@@ -39,6 +54,18 @@ export default function CourseDetail() {
   const [submitTitle, setSubmitTitle] = useState('')
   const [submitFile, setSubmitFile] = useState(null)
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [quizzes, setQuizzes] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState({});
+  const [activeAssignmentForSubmit, setActiveAssignmentForSubmit] = useState(null);
+  const [assignmentSubmitFile, setAssignmentSubmitFile] = useState(null);
+  const [assignmentSubmitText, setAssignmentSubmitText] = useState('');
+  const [assignmentSubmitLoading, setAssignmentSubmitLoading] = useState(false);
+  const [activeQuizForTaking, setActiveQuizForTaking] = useState(null);
+  const [activeAttemptForReview, setActiveAttemptForReview] = useState(null);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -53,6 +80,37 @@ export default function CourseDetail() {
           setMaterials(mats)
         } catch {
           setMaterials([])
+        }
+
+        try {
+          const qList = await quizService.getCourseQuizzes(id);
+          setQuizzes(qList || []);
+        } catch { setQuizzes([]); }
+
+        try {
+          const aList = await assignmentService.getCourseAssignments(id);
+          setAssignments(aList || []);
+          if (currentUser?.role === 'student') {
+            const subsMap = {};
+            (aList || []).forEach(a => {
+              if (a.mySubmission) {
+                subsMap[a._id] = a.mySubmission;
+              }
+            });
+            setAssignmentSubmissions(subsMap);
+          }
+        } catch { setAssignments([]); }
+
+        try {
+          const annList = await announcementService.getAnnouncements(id);
+          setAnnouncements(annList || []);
+        } catch { setAnnouncements([]); }
+
+        if (currentUser) {
+          try {
+            const wishlist = await authService.getWishlist();
+            setIsWishlisted(wishlist.some(c => c._id === id));
+          } catch {}
         }
 
         // Only students who are logged in can have an enrollment status
@@ -75,6 +133,24 @@ export default function CourseDetail() {
     fetchCourse()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleToggleWishlist = async () => {
+    if (!currentUser) return navigate('/login');
+    setWishlistLoading(true);
+    try {
+      if (isWishlisted) {
+        await authService.removeFromWishlist(id);
+        setIsWishlisted(false);
+      } else {
+        await authService.addToWishlist(id);
+        setIsWishlisted(true);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to update wishlist');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
 
   const handleEnroll = async () => {
     if (!currentUser) {
