@@ -2,7 +2,9 @@ import Quiz from '../models/Quiz.js';
 import QuizAttempt from '../models/QuizAttempt.js';
 import Course from '../models/Course.js';
 import Enrollment from '../models/Enrollment.js';
+import Certificate from '../models/Certificate.js';
 import { createNotification, notifyManyUsers } from '../services/notificationService.js';
+import { evaluateCourseQuizMastery } from './certificateController.js';
 
 // ==========================================
 // QUIZ MANAGEMENT (Instructor / Admin)
@@ -251,6 +253,49 @@ export const togglePublishQuiz = async (req, res, next) => {
   }
 };
 
+/**
+ * Toggle completed status of a quiz (mark quiz completed/active)
+ * @route PATCH /api/quizzes/:id/complete
+ * @access Private (Instructor / Admin)
+ */
+export const toggleCompleteQuiz = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const quiz = await Quiz.findById(id).populate('course');
+
+    if (!quiz) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Quiz not found',
+      });
+    }
+
+    const course = quiz.course;
+    const isInstructor =
+      course.instructor.toString() === req.user._id.toString() ||
+      (course.coInstructors &&
+        course.coInstructors.some((cId) => cId.toString() === req.user._id.toString()));
+
+    if (!isInstructor && req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to manage this quiz',
+      });
+    }
+
+    quiz.isCompleted = !quiz.isCompleted;
+    await quiz.save();
+
+    res.status(200).json({
+      status: 'success',
+      data: quiz,
+      message: `Quiz marked as ${quiz.isCompleted ? 'completed' : 'active'}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ==========================================
 // QUIZ VIEWING & RETRIEVAL
 // ==========================================
@@ -318,6 +363,7 @@ export const getCourseQuizzes = async (req, res, next) => {
         passingScore: q.passingScore,
         maxAttempts: q.maxAttempts,
         isPublished: q.isPublished,
+        isCompleted: Boolean(q.isCompleted),
         shuffleQuestions: q.shuffleQuestions,
         showCorrectAnswersAfterSubmission: q.showCorrectAnswersAfterSubmission,
         questionCount,
@@ -639,6 +685,59 @@ export const submitQuizAttempt = async (req, res, next) => {
       link: `/courses/${quiz.course._id}`,
     });
 
+    // Check if student has now passed all quizzes in this course and qualified for a certificate
+    let certificateEarned = false;
+    let certificateId = null;
+
+    if (passed) {
+      try {
+        const mastery = await evaluateCourseQuizMastery(quiz.course._id, studentId);
+        if (mastery.eligible) {
+          certificateEarned = true;
+          let cert = await Certificate.findOne({
+            course: quiz.course._id,
+            student: studentId,
+          });
+
+          if (!cert) {
+            const cryptoModule = await import('crypto');
+            const randomCode = cryptoModule.default.randomBytes(3).toString('hex').toUpperCase();
+            const year = new Date().getFullYear();
+            const newCertId = `CERT-${year}-${randomCode}-${Math.floor(1000 + Math.random() * 9000)}`;
+            const instructorName = quiz.course.instructor?.name || 'Lead Instructor';
+
+            cert = await Certificate.create({
+              student: studentId,
+              course: quiz.course._id,
+              certificateId: newCertId,
+              issueDate: new Date(),
+              averageScore: mastery.averageScore,
+              quizzesCount: mastery.totalQuizzes,
+              instructorName,
+              verified: true,
+            });
+
+            await Enrollment.findOneAndUpdate(
+              { course: quiz.course._id, student: studentId },
+              { status: 'completed', progress: 100 }
+            );
+
+            await createNotification({
+              user: studentId,
+              type: 'achievement',
+              title: '🎓 Certificate of Completion Earned!',
+              message: `Congratulations! You have passed all ${mastery.totalQuizzes} quizzes in "${quiz.course.title}" and earned your Certificate of Completion!`,
+              link: `/courses/${quiz.course._id}`,
+            });
+          }
+
+          certificateId = cert.certificateId;
+        }
+      } catch (certErr) {
+        console.error('[Certificate Check Error]', certErr);
+      }
+    }
+
     res.status(201).json({
       status: 'success',
       data: {
@@ -654,6 +753,8 @@ export const submitQuizAttempt = async (req, res, next) => {
         maxAttempts: quiz.maxAttempts,
         timeSpentSeconds: attempt.timeSpentSeconds,
         showReview: quiz.showCorrectAnswersAfterSubmission,
+        certificateEarned,
+        certificateId,
       },
       message: `Quiz completed. Your score: ${percentage}%`,
     });

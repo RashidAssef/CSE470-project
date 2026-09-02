@@ -159,6 +159,21 @@ export default function QuizResultModal({
             </div>
           </div>
 
+          {/* Certificate Unlocked Callout */}
+          {data?.certificateEarned && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 flex items-center gap-3 text-amber-950 shadow-xs">
+              <span className="p-2.5 bg-amber-500 text-white rounded-xl shadow-xs shrink-0">
+                <Award size={22} />
+              </span>
+              <div>
+                <p className="font-bold text-sm">🎉 Certificate of Completion Unlocked!</p>
+                <p className="text-xs text-slate-700 mt-0.5">
+                  You have passed all required quizzes in this course! Your official certificate is now generated and ready to download on your course page and student dashboard.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Question-by-Question Breakdown */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate">

@@ -372,6 +372,42 @@ export default function InstructorCourseManage() {
     setSelectedQuizForSubmissions(quiz);
   };
 
+  const handleToggleCourseCompletion = async () => {
+    const actionText = course?.isCompleted ? 'reopen this course as in-progress' : 'mark this entire course as completed';
+    if (!window.confirm(`Are you sure you want to ${actionText}?${!course?.isCompleted ? ' Enrolled students who passed all quizzes will have their Certificate of Completion unlocked.' : ''}`)) {
+      return;
+    }
+    setActionLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const updated = await courseService.toggleCourseCompletion(courseId);
+      setCourse(updated);
+      setMessage(`Course successfully ${updated.isCompleted ? 'marked as completed! Certificates unlocked for qualifying students.' : 'reopened as in-progress.'}`);
+    } catch (err) {
+      setError(err.message || 'Failed to update course completion status');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleCompleteQuiz = async (quizId) => {
+    setActionLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const updated = await quizService.toggleCompleteQuiz(quizId);
+      setQuizzes((prev) =>
+        prev.map((q) => (q._id === quizId ? { ...q, isCompleted: updated.isCompleted } : q))
+      );
+      setMessage(`Quiz marked as ${updated.isCompleted ? 'completed' : 'active'}.`);
+    } catch (err) {
+      setError(err.message || 'Failed to update quiz status');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper">
@@ -423,14 +459,46 @@ export default function InstructorCourseManage() {
           Instructor dashboard
         </Link>
 
-        <div className="mt-4 flex flex-col justify-between sm:flex-row sm:items-center">
+        <div className="mt-4 flex flex-col justify-between sm:flex-row sm:items-center gap-4">
           <div>
-            <h1 className="font-display text-2xl font-semibold">{course?.title}</h1>
-            <p className="mt-1 text-sm text-ink-soft">Course Management Portal</p>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display text-2xl font-semibold">{course?.title}</h1>
+              {course?.isCompleted ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-teal/15 text-teal px-3 py-0.5 text-xs font-bold uppercase tracking-wider">
+                  <CheckCircle size={14} />
+                  Course Completed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber/15 text-amber-dark px-3 py-0.5 text-xs font-bold uppercase tracking-wider">
+                  <Clock size={14} />
+                  In Progress
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Course Management Portal • {course?.isCompleted ? 'Finalized (Certificates unlocked)' : 'Active learning mode'}
+            </p>
           </div>
-          <span className="mt-2 w-fit rounded-full bg-primary/10 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-primary sm:mt-0">
-            {course?.enrolledCount || 0} enrolled student{(course?.enrolledCount || 0) === 1 ? '' : 's'}
-          </span>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggleCourseCompletion}
+              disabled={actionLoading}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition ${
+                course?.isCompleted
+                  ? 'bg-paper text-slate border border-line hover:text-ink'
+                  : 'bg-teal text-white hover:bg-teal/90 shadow-teal/20'
+              }`}
+            >
+              <Award size={16} />
+              <span>{course?.isCompleted ? 'Reopen Course' : 'Mark Course Completed'}</span>
+            </button>
+
+            <span className="w-fit rounded-full bg-primary/10 px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-primary">
+              {course?.enrolledCount || 0} enrolled student{(course?.enrolledCount || 0) === 1 ? '' : 's'}
+            </span>
+          </div>
         </div>
 
         {error && <p className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">{error}</p>}
@@ -786,6 +854,17 @@ export default function InstructorCourseManage() {
                             {isPublished ? 'Published' : 'Draft'}
                           </span>
 
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${
+                              quiz.isCompleted
+                                ? 'bg-primary/10 text-primary border border-primary/20'
+                                : 'bg-amber/10 text-amber-dark'
+                            }`}
+                          >
+                            {quiz.isCompleted ? <CheckCircle size={12} /> : <Clock size={12} />}
+                            {quiz.isCompleted ? 'Quiz Completed' : 'Quiz Active'}
+                          </span>
+
                           {quiz.moduleOrder && (
                             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary-light text-primary">
                               Module {quiz.moduleOrder}
@@ -812,6 +891,20 @@ export default function InstructorCourseManage() {
 
                       {/* Action buttons */}
                       <div className="flex items-center flex-wrap gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-line w-full md:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCompleteQuiz(quiz._id)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
+                            quiz.isCompleted
+                              ? 'border-line bg-paper text-slate hover:text-ink'
+                              : 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/20'
+                          }`}
+                          title={quiz.isCompleted ? 'Reopen Quiz as Active' : 'Mark Quiz as Completed'}
+                        >
+                          <CheckCircle size={13} />
+                          <span>{quiz.isCompleted ? 'Reopen Quiz' : 'Mark Completed'}</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleTogglePublishQuiz(quiz._id)}

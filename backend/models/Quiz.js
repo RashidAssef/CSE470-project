@@ -83,6 +83,10 @@ const quizSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isCompleted: {
+      type: Boolean,
+      default: false,
+    },
     shuffleQuestions: {
       type: Boolean,
       default: false,

@@ -54,8 +54,16 @@ const courseSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'published'],
+      enum: ['draft', 'published', 'completed'],
       default: 'draft',
+    },
+    isCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
     },
     // Denormalized counter kept in sync by the Enrollment controller.
     // Avoids a full aggregation query every time a course card is rendered.

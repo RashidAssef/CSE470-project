@@ -20,9 +20,11 @@ import {
   X,
   ClipboardList,
   Clock,
+  Download,
 } from 'lucide-react'
-import { authService, enrollmentService, assignmentService, UPLOADS_BASE_URL } from '../services/api.js'
+import { authService, enrollmentService, assignmentService, certificateService, UPLOADS_BASE_URL } from '../services/api.js'
 import NotificationBell from '../components/NotificationBell.jsx'
+import CertificateModal from '../components/CertificateModal.jsx'
 
 export default function StudentDashboard() {
   const navigate = useNavigate()
@@ -30,6 +32,9 @@ export default function StudentDashboard() {
   const [enrollments, setEnrollments] = useState([])
   const [wishlist, setWishlist] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [certificates, setCertificates] = useState([])
+  const [activeCertForModal, setActiveCertForModal] = useState(null)
+  const [certDownloadingId, setCertDownloadingId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('courses') // 'courses', 'assignments', 'wishlist', 'certificates', 'announcements'
@@ -65,6 +70,13 @@ export default function StudentDashboard() {
 
       const assList = await assignmentService.getMyAssignmentsOverview()
       setAssignments(assList || [])
+
+      try {
+        const certList = await certificateService.getMyCertificates()
+        setCertificates(certList || [])
+      } catch {
+        setCertificates([])
+      }
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data')
     } finally {
@@ -138,8 +150,16 @@ export default function StudentDashboard() {
     }
   }
 
-  const handleDownloadCertificate = (courseTitle) => {
-    alert(`Generating & downloading digital certificate for: "${courseTitle}"!`)
+  const handleDownloadCertificate = async (courseId, courseTitle) => {
+    if (!courseId) return;
+    setCertDownloadingId(courseId);
+    try {
+      await certificateService.downloadCertificatePDF(courseId, courseTitle || 'Course');
+    } catch (err) {
+      alert(err.message || 'Failed to download certificate PDF');
+    } finally {
+      setCertDownloadingId(null);
+    }
   }
 
   const handleLogout = () => {
@@ -256,7 +276,7 @@ export default function StudentDashboard() {
             }`}
           >
             <Award size={16} />
-            Certificates ({completedEnrollments.length})
+            Certificates ({certificates.length > 0 ? certificates.length : completedEnrollments.length})
           </button>
           <button
             onClick={() => setActiveTab('announcements')}
@@ -362,10 +382,20 @@ export default function StudentDashboard() {
                           {/* Certificate download trigger */}
                           {isCompleted && (
                             <button
-                              onClick={() => handleDownloadCertificate(enrollment.course?.title)}
-                              className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal/10 border border-teal/20 text-teal py-2.5 text-xs font-bold hover:bg-teal hover:text-white transition-colors mt-2"
+                              onClick={() => handleDownloadCertificate(enrollment.course?._id, enrollment.course?.title)}
+                              disabled={certDownloadingId === enrollment.course?._id}
+                              className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal/10 border border-teal/20 text-teal py-2.5 text-xs font-bold hover:bg-teal hover:text-white transition-colors mt-2 disabled:opacity-60"
                             >
-                              <Award size={14} /> Download Certificate
+                              {certDownloadingId === enrollment.course?._id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <Award size={14} />
+                              )}
+                              <span>
+                                {certDownloadingId === enrollment.course?._id
+                                  ? 'Downloading PDF...'
+                                  : 'Download Certificate (PDF)'}
+                              </span>
                             </button>
                           )}
                         </div>
@@ -526,59 +556,117 @@ export default function StudentDashboard() {
           {/* TAB 4: Certificates */}
           {!loading && !error && activeTab === 'certificates' && (
             <>
-              {completedEnrollments.length === 0 ? (
+              {certificates.length === 0 && completedEnrollments.length === 0 ? (
                 <div className="rounded-2xl border border-line bg-paper-alt p-12 text-center">
                   <Award className="mx-auto text-slate" size={32} />
-                  <p className="mt-4 text-sm text-ink-soft">
-                    You haven't completed any courses yet.
+                  <h3 className="mt-4 font-display text-base font-bold text-ink">
+                    No Certificates Earned Yet
+                  </h3>
+                  <p className="mt-1 text-xs text-slate max-w-sm mx-auto">
+                    Take and pass all required quizzes in any of your enrolled courses to earn and download your official digital certificate.
                   </p>
-                  <p className="text-xs text-slate mt-1">
-                    Complete 100% of sequential modules for any course to unlock your certificate here.
-                  </p>
+                  <button
+                    onClick={() => setActiveTab('courses')}
+                    className="mt-4 inline-block text-xs font-bold text-primary hover:underline"
+                  >
+                    View enrolled courses →
+                  </button>
                 </div>
               ) : (
                 <div className="grid gap-5 sm:grid-cols-2">
-                  {completedEnrollments.map((enrollment) => (
-                    <div
-                      key={enrollment._id}
-                      className="flex flex-col rounded-2xl border border-line bg-paper-alt p-6 justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="w-fit rounded-full bg-paper px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate border border-line">
-                            {enrollment.course?.category?.name || 'General'}
-                          </span>
-                          <span className="flex items-center gap-1 font-mono text-[10px] font-bold text-teal">
-                            <ShieldCheck size={12} /> VERIFIED
-                          </span>
-                        </div>
-                        <h3 className="mt-4 font-display text-lg font-semibold text-ink line-clamp-1">
-                          {enrollment.course?.title}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate">
-                          Instructor: {enrollment.course?.instructor?.name || 'Instructor'}
-                        </p>
-                        <p className="mt-3 text-xs text-ink-soft leading-relaxed">
-                          Completed on: {enrollment.updatedAt ? new Date(enrollment.updatedAt).toLocaleDateString() : new Date().toLocaleDateString()}
-                        </p>
-                      </div>
+                  {(certificates.length > 0 ? certificates : completedEnrollments).map((item) => {
+                    const isCertDoc = Boolean(item.certificateId);
+                    const course = item.course;
+                    const courseId = course?._id || course;
+                    const courseTitle = course?.title || 'Course Certificate';
+                    const categoryName = course?.category?.name || 'General';
+                    const instructorName = item.instructorName || course?.instructor?.name || 'Lead Instructor';
+                    const issueDate = item.issueDate || item.updatedAt;
+                    const certificateId = item.certificateId;
+                    const averageScore = item.averageScore;
+                    const quizzesCount = item.quizzesCount;
 
-                      <div className="mt-6 border-t border-line pt-4 flex gap-3">
-                        <button
-                          onClick={() => handleDownloadCertificate(enrollment.course?.title)}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-teal text-white py-2.5 text-xs font-bold hover:bg-teal/90 transition-colors"
-                        >
-                          <Award size={14} /> Download Certificate
-                        </button>
-                        <Link
-                          to={`/courses/${enrollment.course?._id}`}
-                          className="px-4 py-2.5 border border-line text-xs font-semibold rounded-xl text-ink hover:bg-paper transition-colors flex items-center justify-center"
-                        >
-                          Review Course
-                        </Link>
+                    return (
+                      <div
+                        key={item._id}
+                        className="flex flex-col rounded-3xl border border-amber-200/80 bg-gradient-to-br from-white via-paper-alt to-amber-50/40 p-6 justify-between shadow-xs hover:shadow-md transition-shadow relative overflow-hidden"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="w-fit rounded-full bg-paper px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-slate border border-line">
+                              {categoryName}
+                            </span>
+                            <span className="flex items-center gap-1 font-mono text-[10px] font-extrabold text-teal bg-teal/10 px-2 py-0.5 rounded-full border border-teal/20">
+                              <ShieldCheck size={12} /> VERIFIED
+                            </span>
+                          </div>
+                          <h3 className="mt-4 font-display text-lg font-bold text-ink line-clamp-1">
+                            {courseTitle}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate">
+                            Instructor: <span className="font-semibold text-ink-soft">{instructorName}</span>
+                          </p>
+
+                          {averageScore !== undefined && (
+                            <p className="mt-2 text-xs font-semibold text-teal">
+                              Quiz Grade Average: {averageScore}% {quizzesCount ? `(${quizzesCount} quizzes passed)` : ''}
+                            </p>
+                          )}
+
+                          <div className="mt-3 pt-3 border-t border-line/60 flex items-center justify-between text-[11px] text-slate">
+                            <span>
+                              Issued: {issueDate ? new Date(issueDate).toLocaleDateString() : new Date().toLocaleDateString()}
+                            </span>
+                            {certificateId && (
+                              <span className="font-mono text-[10px] text-ink-soft">
+                                {certificateId}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-6 border-t border-line pt-4 flex flex-col sm:flex-row gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadCertificate(courseId, courseTitle)}
+                            disabled={certDownloadingId === courseId}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-teal text-white py-2.5 text-xs font-bold hover:bg-teal/90 transition-colors shadow-sm disabled:opacity-60"
+                          >
+                            {certDownloadingId === courseId ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Download size={14} />
+                            )}
+                            <span>{certDownloadingId === courseId ? 'Downloading...' : 'Download PDF'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveCertForModal({
+                                courseId,
+                                courseTitle,
+                                studentName: user?.name,
+                                instructorName,
+                                certificateId,
+                                issueDate,
+                                averageScore,
+                                quizzesCount,
+                              })
+                            }
+                            className="px-3.5 py-2.5 border border-line text-xs font-bold rounded-xl text-ink hover:bg-paper transition-colors flex items-center justify-center"
+                          >
+                            Preview
+                          </button>
+                          <Link
+                            to={`/courses/${courseId}`}
+                            className="px-3.5 py-2.5 border border-line text-xs font-semibold rounded-xl text-slate hover:text-ink hover:bg-paper transition-colors flex items-center justify-center"
+                          >
+                            Course
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -739,6 +827,20 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
+      {/* VERIFIED CERTIFICATE MODAL */}
+      <CertificateModal
+        isOpen={Boolean(activeCertForModal)}
+        onClose={() => setActiveCertForModal(null)}
+        courseId={activeCertForModal?.courseId}
+        courseTitle={activeCertForModal?.courseTitle}
+        studentName={activeCertForModal?.studentName}
+        instructorName={activeCertForModal?.instructorName}
+        certificateId={activeCertForModal?.certificateId}
+        issueDate={activeCertForModal?.issueDate}
+        averageScore={activeCertForModal?.averageScore}
+        quizzesCount={activeCertForModal?.quizzesCount}
+      />
     </div>
   )
 }

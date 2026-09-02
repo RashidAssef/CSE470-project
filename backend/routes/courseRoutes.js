@@ -7,6 +7,7 @@ import {
   updateCourseInstructors,
   getActiveInstructors,
   updateCourseModules,
+  toggleCourseCompletion,
 } from '../controllers/courseController.js';
 import {
   uploadCourseMaterial,
@@ -71,5 +72,6 @@ router.get('/:id', getCourseById);
 // ==========================================
 router.post('/', protect, authorize('instructor', 'admin'), createCourse);
 router.patch('/:id/instructors', protect, authorize('admin'), updateCourseInstructors);
+router.patch('/:id/completion', protect, authorize('instructor', 'admin'), toggleCourseCompletion);
 
 export default router;
