@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings } from 'lucide-react';
-import { authService, courseService, courseFileService, enrollmentService, UPLOADS_BASE_URL } from '../services/api.js';
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, FileText, Users, BarChart3, GraduationCap, X, Search, UserPlus, Trash, ShieldAlert, Settings, Video, ClipboardList, Award, Megaphone, Clock } from 'lucide-react';
+import { authService, courseService, courseFileService, enrollmentService, assignmentService, quizService, videoLectureService, announcementService, UPLOADS_BASE_URL } from '../services/api.js';
 import FilePicker from '../components/FilePicker.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import QuizBuilderModal from '../components/QuizBuilderModal.jsx';

@@ -558,6 +558,285 @@ export const notificationService = {
   },
 };
 
-export const assignmentService = {};
 export const forumService = {};
-export const quizService = {};
+
+// ==========================================
+// ASSIGNMENT API SERVICES
+// ==========================================
+export const assignmentService = {
+  /**
+   * Get all assignments for a course
+   * @param {string} courseId
+   */
+  getCourseAssignments: async (courseId) => {
+    const res = await apiFetch(`/assignments/course/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Create a new assignment (supports optional file attachment)
+   * @param {string} courseId
+   * @param {string} title
+   * @param {string} description
+   * @param {string} deadline - ISO date string
+   * @param {number} maxMarks
+   * @param {File|null} file
+   */
+  createAssignment: async (courseId, title, description, deadline, maxMarks, file) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('deadline', deadline);
+    formData.append('maxMarks', String(maxMarks));
+    if (file) formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/assignments/course/${courseId}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to create assignment');
+    return data.data;
+  },
+
+  /**
+   * Delete an assignment
+   * @param {string} assignmentId
+   */
+  deleteAssignment: async (assignmentId) => {
+    return await apiFetch(`/assignments/${assignmentId}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Get all submissions for an assignment (instructor)
+   * @param {string} assignmentId
+   */
+  getAssignmentSubmissions: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/submissions`);
+    return res.data;
+  },
+
+  /**
+   * Grade a submission
+   * @param {string} submissionId
+   * @param {number} marks
+   * @param {string} feedback
+   */
+  gradeSubmission: async (submissionId, marks, feedback) => {
+    const res = await apiFetch(`/assignments/submissions/${submissionId}/grade`, {
+      method: 'PATCH',
+      body: { marks, feedback },
+    });
+    return res.data;
+  },
+
+  /**
+   * Submit an assignment as a student
+   * @param {string} assignmentId
+   * @param {File} file
+   */
+  submitAssignment: async (assignmentId, file) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}/submit`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to submit assignment');
+    return data.data;
+  },
+
+  /**
+   * Get the logged-in student's own submission for an assignment
+   * @param {string} assignmentId
+   */
+  getMySubmission: async (assignmentId) => {
+    const res = await apiFetch(`/assignments/${assignmentId}/my-submission`);
+    return res.data;
+  },
+
+  /**
+   * Get student overview of all assignments across enrolled courses
+   */
+  getMyCourseAssignmentsOverview: async () => {
+    const res = await apiFetch('/assignments/student/my');
+    return res.data;
+  },
+};
+
+// ==========================================
+// QUIZ API SERVICES
+// ==========================================
+export const quizService = {
+  /**
+   * Get all quizzes for a course
+   * @param {string} courseId
+   */
+  getCourseQuizzes: async (courseId) => {
+    const res = await apiFetch(`/quizzes/course/${courseId}`);
+    return res.data;
+  },
+
+  /**
+   * Get a single quiz by ID
+   * @param {string} quizId
+   */
+  getQuizById: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}`);
+    return res.data;
+  },
+
+  /**
+   * Create a new quiz
+   * @param {Object} quizData - { courseId, title, description, questions, timeLimit, passMark }
+   */
+  createQuiz: async (quizData) => {
+    const res = await apiFetch('/quizzes', {
+      method: 'POST',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Update a quiz
+   * @param {string} quizId
+   * @param {Object} quizData
+   */
+  updateQuiz: async (quizId, quizData) => {
+    const res = await apiFetch(`/quizzes/${quizId}`, {
+      method: 'PUT',
+      body: quizData,
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a quiz
+   * @param {string} quizId
+   */
+  deleteQuiz: async (quizId) => {
+    return await apiFetch(`/quizzes/${quizId}`, { method: 'DELETE' });
+  },
+
+  /**
+   * Toggle a quiz's published status
+   * @param {string} quizId
+   */
+  togglePublish: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/publish`, { method: 'PATCH' });
+    return res.data;
+  },
+
+  /**
+   * Submit a quiz attempt (student)
+   * @param {string} quizId
+   * @param {Array} answers - Array of { questionId, selectedOption }
+   */
+  submitAttempt: async (quizId, answers) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempt`, {
+      method: 'POST',
+      body: { answers },
+    });
+    return res.data;
+  },
+
+  /**
+   * Get the logged-in student's attempts for a quiz
+   * @param {string} quizId
+   */
+  getMyAttempts: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/attempts/mine`);
+    return res.data;
+  },
+
+  /**
+   * Get all submissions for a quiz (instructor)
+   * @param {string} quizId
+   */
+  getQuizSubmissions: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/submissions`);
+    return res.data;
+  },
+};
+
+// ==========================================
+// VIDEO LECTURE API SERVICES
+// ==========================================
+export const videoLectureService = {
+  /**
+   * Get all video lectures for a course
+   * @param {string} courseId
+   */
+  getLectures: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/video-lectures`);
+    return res.data;
+  },
+
+  /**
+   * Add a new video lecture to a module
+   * @param {string} courseId
+   * @param {string} title
+   * @param {string} videoUrl
+   * @param {number} moduleOrder
+   * @param {number} duration - seconds
+   * @param {number} order
+   */
+  createLecture: async (courseId, title, videoUrl, moduleOrder, duration, order) => {
+    const res = await apiFetch(`/courses/${courseId}/video-lectures`, {
+      method: 'POST',
+      body: { title, videoUrl, moduleOrder, duration, order },
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete a video lecture
+   * @param {string} lectureId
+   */
+  deleteLecture: async (lectureId) => {
+    return await apiFetch(`/video-lectures/${lectureId}`, { method: 'DELETE' });
+  },
+};
+
+// ==========================================
+// ANNOUNCEMENT API SERVICES
+// ==========================================
+export const announcementService = {
+  /**
+   * Get all announcements for a course
+   * @param {string} courseId
+   */
+  getAnnouncements: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/announcements`);
+    return res.data;
+  },
+
+  /**
+   * Create a new announcement
+   * @param {string} courseId
+   * @param {string} title
+   * @param {string} content
+   */
+  createAnnouncement: async (courseId, title, content) => {
+    const res = await apiFetch(`/courses/${courseId}/announcements`, {
+      method: 'POST',
+      body: { title, content },
+    });
+    return res.data;
+  },
+
+  /**
+   * Delete an announcement
+   * @param {string} announcementId
+   */
+  deleteAnnouncement: async (announcementId) => {
+    return await apiFetch(`/announcements/${announcementId}`, { method: 'DELETE' });
+  },
+};
