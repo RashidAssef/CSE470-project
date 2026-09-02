@@ -664,7 +664,7 @@ export const assignmentService = {
   /**
    * Get student overview of all assignments across enrolled courses
    */
-  getMyCourseAssignmentsOverview: async () => {
+  getMyAssignmentsOverview: async () => {
     const res = await apiFetch('/assignments/student/my');
     return res.data;
   },
