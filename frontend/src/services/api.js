@@ -347,6 +347,17 @@ export const courseService = {
     });
     return res.data;
   },
+
+  /**
+   * Toggle completion status of course (mark course completed / active)
+   * @param {string} courseId
+   */
+  toggleCourseCompletion: async (courseId) => {
+    const res = await apiFetch(`/courses/${courseId}/completion`, {
+      method: 'PATCH',
+    });
+    return res.data;
+  },
 };
 
 // ==========================================
@@ -758,6 +769,17 @@ export const quizService = {
     const res = await apiFetch(`/quizzes/${quizId}/submissions`);
     return res.data;
   },
+
+  /**
+   * Toggle completed status of a quiz (mark quiz completed / active)
+   * @param {string} quizId
+   */
+  toggleCompleteQuiz: async (quizId) => {
+    const res = await apiFetch(`/quizzes/${quizId}/complete`, {
+      method: 'PATCH',
+    });
+    return res.data;
+  },
 };
 
 // ==========================================
@@ -835,7 +857,6 @@ export const forumService = {
 };
 
 // ==========================================
-<<<<<<< HEAD
 // ANALYTICS API SERVICES
 // ==========================================
 export const analyticsService = {
@@ -853,7 +874,19 @@ export const analyticsService = {
    */
   getCourseAnalytics: async (courseId) => {
     const res = await apiFetch(`/courses/${courseId}/analytics`);
-=======
+    return res.data;
+  },
+
+  /**
+   * Platform-wide analytics
+   */
+  getAdminAnalytics: async () => {
+    const res = await apiFetch('/analytics/admin');
+    return res.data;
+  },
+};
+
+// ==========================================
 // REVIEW & RATING API SERVICES
 // ==========================================
 export const reviewService = {
@@ -863,19 +896,10 @@ export const reviewService = {
    */
   getCourseReviews: async (courseId) => {
     const res = await apiFetch(`/courses/${courseId}/reviews`);
->>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
     return res.data;
   },
 
   /**
-<<<<<<< HEAD
-   * Platform-wide analytics
-   */
-  getAdminAnalytics: async () => {
-    const res = await apiFetch('/analytics/admin');
-    return res.data;
-  },
-=======
    * Get the logged-in student's own review for a course, if any (null if none)
    * @param {string} courseId
    */
@@ -907,5 +931,76 @@ export const reviewService = {
       method: 'DELETE',
     });
   },
->>>>>>> a3315611bf1a46122872c216564546ba2e0ab8b1
+};
+
+// ==========================================
+// CERTIFICATE API SERVICES
+// ==========================================
+export const certificateService = {
+  /**
+   * Check if current student has passed all quizzes for a course and qualifies for a certificate
+   * @param {string} courseId
+   */
+  getCourseCertificateStatus: async (courseId) => {
+    const res = await apiFetch(`/certificates/course/${courseId}/status`);
+    return res.data;
+  },
+
+  /**
+   * Generate or retrieve certificate for student upon passing all course quizzes
+   * @param {string} courseId
+   */
+  generateCertificate: async (courseId) => {
+    const res = await apiFetch(`/certificates/course/${courseId}/generate`, {
+      method: 'POST',
+    });
+    return res.data;
+  },
+
+  /**
+   * Get all earned certificates for the logged-in student
+   */
+  getMyCertificates: async () => {
+    const res = await apiFetch('/certificates/my-certificates');
+    return res.data;
+  },
+
+  /**
+   * Download the official Certificate of Completion as a PDF file
+   * @param {string} courseId
+   * @param {string} [courseTitle='Certificate']
+   */
+  downloadCertificatePDF: async (courseId, courseTitle = 'Certificate') => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`http://localhost:5000/api/certificates/course/${courseId}/download`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Download failed' }));
+      throw new Error(errorData.message || 'Failed to download certificate PDF');
+    }
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    const safeTitle = courseTitle.replace(/[^a-z0-9_-]/gi, '_');
+    downloadLink.href = blobUrl;
+    downloadLink.download = `Certificate_${safeTitle}.pdf`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    window.URL.revokeObjectURL(blobUrl);
+    document.body.removeChild(downloadLink);
+  },
+
+  /**
+   * Public certificate verification by credential ID
+   * @param {string} certificateId
+   */
+  verifyCertificate: async (certificateId) => {
+    const res = await apiFetch(`/certificates/verify/${encodeURIComponent(certificateId)}`);
+    return res.data;
+  },
 };

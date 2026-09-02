@@ -23,12 +23,15 @@ import {
   X,
   MessageSquare,
   Star,
+  Download,
+  ShieldCheck,
 } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import FilePicker from '../components/FilePicker.jsx';
 import QuizPlayerModal from '../components/QuizPlayerModal.jsx';
 import QuizResultModal from '../components/QuizResultModal.jsx';
+import CertificateModal from '../components/CertificateModal.jsx';
 import {
   courseService,
   enrollmentService,
@@ -37,6 +40,7 @@ import {
   assignmentService,
   quizService,
   reviewService,
+  certificateService,
   UPLOADS_BASE_URL,
 } from '../services/api.js';
 
@@ -86,6 +90,11 @@ export default function CourseDetail() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+
+  // Certificate state
+  const [certificateStatus, setCertificateStatus] = useState(null);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [certDownloadLoading, setCertDownloadLoading] = useState(false);
 
   const fetchCourse = async () => {
     setLoading(true);
@@ -160,6 +169,14 @@ export default function CourseDetail() {
             setAssignmentSubmissions(subMap);
           } catch {
             // Ignore
+          }
+
+          // Fetch certificate eligibility status
+          try {
+            const certData = await certificateService.getCourseCertificateStatus(id);
+            setCertificateStatus(certData);
+          } catch {
+            setCertificateStatus(null);
           }
         }
       }
@@ -329,8 +346,34 @@ export default function CourseDetail() {
     const qList = await quizService.getCourseQuizzes(id);
     setQuizzes(qList || []);
 
+    // Refresh certificate eligibility status
+    try {
+      const certData = await certificateService.getCourseCertificateStatus(id);
+      setCertificateStatus(certData);
+    } catch {
+      // Ignore
+    }
+
     if (result && result.attemptId) {
       setActiveAttemptForReview(result.attemptId);
+    }
+
+    if (result && result.certificateEarned) {
+      // Automatic celebration when certificate is unlocked
+      setTimeout(() => {
+        setIsCertificateModalOpen(true);
+      }, 1500);
+    }
+  };
+
+  const handleDownloadCertificate = async () => {
+    setCertDownloadLoading(true);
+    try {
+      await certificateService.downloadCertificatePDF(id, course?.title || 'Certificate');
+    } catch (err) {
+      alert(err.message || 'Could not download certificate');
+    } finally {
+      setCertDownloadLoading(false);
     }
   };
 
@@ -430,6 +473,73 @@ export default function CourseDetail() {
               </div>
             )}
 
+            {/* CELEBRATORY CERTIFICATE BANNER (when both all quizzes passed AND course completed) */}
+            {enrolled && currentUser?.role === 'student' && certificateStatus?.eligible && (
+              <div className="mt-8 rounded-3xl border border-amber-300 bg-gradient-to-br from-amber-50/80 via-white to-teal-50/60 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+                <div className="flex items-start gap-4">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-md shadow-amber-500/20 shrink-0">
+                    <Award size={28} />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                      <ShieldCheck size={12} /> OFFICIAL CERTIFICATE UNLOCKED
+                    </span>
+                    <h3 className="font-display text-lg sm:text-xl font-bold text-slate-900 mt-1">
+                      Congratulations! You've Earned Your Certificate
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">
+                      You have passed all {certificateStatus.totalQuizzes} required course quizzes with an impressive average of {certificateStatus.averageScore}%, and this course has been marked as completed by your instructor. Your official verifiable credential is ready!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex sm:flex-col items-center gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200">
+                  <button
+                    type="button"
+                    onClick={handleDownloadCertificate}
+                    disabled={certDownloadLoading}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-teal-600 text-white hover:bg-teal-700 text-xs font-bold rounded-xl transition shadow-md shadow-teal-600/20 disabled:opacity-60 w-full"
+                  >
+                    {certDownloadLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    <span>{certDownloadLoading ? 'Preparing PDF...' : 'Download PDF'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCertificateModalOpen(true)}
+                    className="flex-1 sm:flex-initial px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white text-slate-800 hover:border-teal-500 hover:text-teal-700 transition w-full"
+                  >
+                    Preview Certificate
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* AWAITING INSTRUCTOR COMPLETION BANNER */}
+            {enrolled && currentUser?.role === 'student' && certificateStatus?.allQuizzesPassed && !certificateStatus?.courseCompleted && (
+              <div className="mt-8 rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-teal-50/50 p-6 sm:p-7 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+                <div className="flex items-start gap-4">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-blue-500 to-teal-600 text-white shadow-md shadow-blue-500/20 shrink-0">
+                    <CheckCircle size={28} />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase tracking-wider text-blue-800 bg-blue-100 px-2 py-0.5 rounded-md">
+                      <Clock size={12} /> ALL QUIZZES PASSED • AWAITING COURSE COMPLETION
+                    </span>
+                    <h3 className="font-display text-lg sm:text-xl font-bold text-slate-900 mt-1">
+                      Outstanding Work! You've Passed All Assessments
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">
+                      You have passed all {certificateStatus.totalQuizzes} quizzes with an average score of {certificateStatus.averageScore}%. Your official Certificate of Completion will be generated and available to download as soon as your instructor marks this course as completed.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-4 py-2 bg-blue-100/70 text-blue-900 rounded-xl border border-blue-200 text-xs font-bold shrink-0">
+                  Course In Progress
+                </div>
+              </div>
+            )}
+
             {/* SECTION 1: Learning Path */}
             {sortedModules.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
@@ -471,15 +581,38 @@ export default function CourseDetail() {
             {/* SECTION 2: Quizzes & Knowledge Checks */}
             {quizzes.length > 0 && (
               <section className="mt-10 border-t border-line pt-8">
-                <div className="flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
-                    <Award size={20} className="text-primary" />
-                    Quizzes & Knowledge Checks ({quizzes.length})
-                  </h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+                      <Award size={20} className="text-primary" />
+                      Quizzes & Knowledge Checks ({quizzes.length})
+                    </h2>
+                    <p className="mt-1 text-sm text-slate">
+                      Test your understanding with self-paced or timed evaluations. Passing all quizzes unlocks your Certificate!
+                    </p>
+                  </div>
+                  {enrolled && currentUser?.role === 'student' && certificateStatus?.hasQuizzes && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                          certificateStatus.eligible
+                            ? 'bg-teal/10 text-teal border border-teal/20'
+                            : 'bg-amber/10 text-amber-dark border border-amber/20'
+                        }`}
+                      >
+                        {certificateStatus.eligible ? (
+                          <>
+                            <ShieldCheck size={14} /> Certificate Unlocked ({certificateStatus.passedQuizzes}/{certificateStatus.totalQuizzes})
+                          </>
+                        ) : (
+                          <>
+                            <Award size={14} /> {certificateStatus.passedQuizzes}/{certificateStatus.totalQuizzes} Passed for Certificate
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="mt-1 text-sm text-slate">
-                  Test your understanding with self-paced or timed evaluations.
-                </p>
 
                 <div className="mt-4 space-y-4">
                   {quizzes.map((quiz) => {
@@ -499,6 +632,11 @@ export default function CourseDetail() {
                             {quiz.moduleOrder && (
                               <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary-light text-primary border border-primary/20">
                                 Module {quiz.moduleOrder}
+                              </span>
+                            )}
+                            {quiz.isCompleted && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                                Quiz Completed
                               </span>
                             )}
                             <span className="text-xs text-slate font-medium">
@@ -897,6 +1035,71 @@ export default function CourseDetail() {
                   <CircleCheck size={18} />
                   You're enrolled
                 </div>
+
+                {/* Certificate Sidebar Callout */}
+                {currentUser?.role === 'student' && certificateStatus?.eligible && (
+                  <div className="mt-3 rounded-2xl border border-amber-300 bg-amber-50/70 p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900">
+                      <Award size={16} className="text-amber-600" /> Certificate Unlocked!
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1">
+                      All {certificateStatus.totalQuizzes} quizzes passed ({certificateStatus.averageScore}% avg).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDownloadCertificate}
+                      disabled={certDownloadLoading}
+                      className="mt-2.5 w-full rounded-xl bg-teal-600 py-2.5 text-xs font-bold text-white hover:bg-teal-700 transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                    >
+                      {certDownloadLoading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                      <span>Download PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCertificateModalOpen(true)}
+                      className="mt-2 w-full text-[11px] font-bold text-teal-700 hover:underline"
+                    >
+                      Preview Certificate
+                    </button>
+                  </div>
+                )}
+
+                {currentUser?.role === 'student' && certificateStatus?.allQuizzesPassed && !certificateStatus?.courseCompleted && (
+                  <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-blue-900">
+                      <CheckCircle size={16} className="text-blue-600" /> Quizzes Passed!
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1">
+                      Certificate unlocks when instructor marks course as completed.
+                    </p>
+                    <span className="inline-block mt-2 px-3 py-1 rounded-lg bg-blue-100/80 text-[10px] font-bold text-blue-800 uppercase tracking-wide">
+                      Course In Progress
+                    </span>
+                  </div>
+                )}
+
+                {currentUser?.role === 'student' && !certificateStatus?.allQuizzesPassed && certificateStatus?.hasQuizzes && (
+                  <div className="mt-3 rounded-2xl border border-line bg-paper p-4 text-xs">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-ink-soft">
+                      <span>Certificate Mastery</span>
+                      <span className="font-mono text-primary font-bold">
+                        {certificateStatus.passedQuizzes}/{certificateStatus.totalQuizzes} Passed
+                      </span>
+                    </div>
+                    <div className="w-full bg-line rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.round((certificateStatus.passedQuizzes / certificateStatus.totalQuizzes) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate mt-1.5">
+                      Pass all quizzes to qualify for your Certificate of Completion.
+                    </p>
+                  </div>
+                )}
+
                 <button
                   onClick={handleUnenroll}
                   disabled={actionLoading}
@@ -1013,6 +1216,20 @@ export default function CourseDetail() {
             setActiveQuizForTaking(activeQuizForTaking);
           }
         }}
+      />
+
+      {/* VERIFIED DIGITAL CERTIFICATE MODAL */}
+      <CertificateModal
+        isOpen={isCertificateModalOpen}
+        onClose={() => setIsCertificateModalOpen(false)}
+        courseId={id}
+        courseTitle={course?.title}
+        studentName={currentUser?.name}
+        instructorName={course?.instructor?.name}
+        certificateId={certificateStatus?.certificate?.certificateId}
+        issueDate={certificateStatus?.certificate?.issueDate}
+        averageScore={certificateStatus?.averageScore}
+        quizzesCount={certificateStatus?.totalQuizzes}
       />
 
       <Footer />
