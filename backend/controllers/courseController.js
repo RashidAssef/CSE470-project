@@ -11,7 +11,7 @@ import { canManageCourse } from '../utils/courseAccess.js';
 export const getCourses = async (req, res, next) => {
   try {
     const { category, level, search, instructor } = req.query;
-    const conditions = [{ status: 'published' }];
+    const conditions = [{ status: { $in: ['published', 'completed'] } }];
 
     if (category) {
       conditions.push({ category });
@@ -391,5 +391,59 @@ export const updateCourseModules = async (req, res, next) => {
       return res.status(400).json({ status: 'fail', message: error.message });
     }
     next(error);
+  }
+};
+
+/**
+ * Toggle course completion status (mark course completed / active)
+ * @route PATCH /api/courses/:id/completion
+ * @access Private (Instructor / Admin)
+ */
+export const toggleCourseCompletion = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const course = await Course.findById(id);
+
+    if (!course) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Course not found',
+      });
+    }
+
+    const isInstructor =
+      course.instructor.toString() === req.user._id.toString() ||
+      (course.coInstructors &&
+        course.coInstructors.some((cId) => cId.toString() === req.user._id.toString()));
+
+    if (!isInstructor && req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You are not authorized to mark this course completed',
+      });
+    }
+
+    course.isCompleted = !course.isCompleted;
+    course.completedAt = course.isCompleted ? new Date() : null;
+    if (course.isCompleted) {
+      course.status = 'completed';
+    } else {
+      course.status = 'published';
+    }
+    await course.save();
+
+    // If course marked as completed, check all enrolled students and issue certificates to those who passed all quizzes!
+    if (course.isCompleted) {
+      const { generateCertificatesForEligibleStudents } = await import('./certificateController.js');
+      await generateCertificatesForEligibleStudents(course._id);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: course,
+      message: `Course marked as ${course.isCompleted ? 'completed' : 'active (in-progress)'}`,
+    });
+  } catch (err) {
+    next(err);
   }
 };

@@ -4,6 +4,7 @@ import {
   updateQuiz,
   deleteQuiz,
   togglePublishQuiz,
+  toggleCompleteQuiz,
   getCourseQuizzes,
   getQuizById,
   submitQuizAttempt,
@@ -36,6 +37,7 @@ router.post('/', protect, authorize('instructor', 'admin'), createQuiz);
 router.put('/:id', protect, authorize('instructor', 'admin'), updateQuiz);
 router.delete('/:id', protect, authorize('instructor', 'admin'), deleteQuiz);
 router.patch('/:id/publish', protect, authorize('instructor', 'admin'), togglePublishQuiz);
+router.patch('/:id/complete', protect, authorize('instructor', 'admin'), toggleCompleteQuiz);
 router.get('/:id/submissions', protect, authorize('instructor', 'admin'), getQuizSubmissionsForInstructor);
 
 export default router;

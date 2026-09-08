@@ -12,6 +12,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
 import assignmentRoutes from './routes/assignmentRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import certificateRoutes from './routes/certificateRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +41,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // Basic Health Check Route
 app.get('/api/health', (req, res) => {
